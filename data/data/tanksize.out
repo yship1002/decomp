@@ -1,0 +1,64 @@
+---------------------------------------
+Begin Slurm Prolog: Apr-22-2025 16:05:46
+Job ID:    4132507
+User ID:   jyang872
+Account:   gts-jscott319
+Job name:  tanksize
+Partition: cpu-large
+QOS:       inferno
+---------------------------------------
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) gmp/6.2.1     2) mpc/1.3.1     3) mpfr/4.2.0     4) zlib/1.2.13
+
+Solving the problem via SBB...
+	Maximum iteration: 100000000.0
+	Maximum time: 43200
+	Tolerance: 1E-03
+Initialize the model...
+	Root node lower bound: 0.90, upper bound: 0.90
+	Total initialization CPU time: 2.19 s
+Done.
+Solving the model...
+================================================================================
+  iteration     CPU time    wall time  lower bound  upper bound     gap
+         1         6.76         2.90       0.9027       0.9030   0.0427%
+================================================================================
+
+
+Optimal solution found.
+
+total wall time: 2.90 s
+total CPU time: 6.76 s
+Nodes explored in branch-and-bound: 3
+---------------------------------------
+Begin Slurm Epilog: Apr-22-2025 16:06:05
+Job ID:        4132507
+User ID:       jyang872
+Account:       gts-jscott319
+Job name:      tanksize
+Resources:     cpu=1,mem=24G,node=1
+Rsrc Used:     cput=00:00:20,vmem=0,walltime=00:00:20,mem=37148K,energy_used=0
+Partition:     cpu-large
+QOS:           inferno
+Nodes:         atl1-1-02-020-27-2
+---------------------------------------
