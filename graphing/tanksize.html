@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanksize</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .node circle {
+            fill: steelblue;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        .node text {
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+        }
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <svg width="3000" height="800">
+        <g transform="translate(50,50)"></g>
+    </svg>
+
+    <script>
+        // Example hierarchical data with many nodes
+        const data = {'name': '0',
+ 'lbd': '9.51e-01',
+ 'children': [{'name': '1',
+   'lbd': '9.51e-01',
+   'children': [{'name': '3',
+     'lbd': '9.51e-01',
+     'children': [{'name': '5',
+       'lbd': '9.51e-01',
+       'children': [{'name': '7',
+         'lbd': '9.51e-01',
+         'children': [{'name': '9',
+           'lbd': '9.51e-01',
+           'children': [{'name': '11',
+             'lbd': '9.51e-01',
+             'children': [{'name': '13',
+               'lbd': '9.51e-01',
+               'children': [{'name': '15',
+                 'lbd': '9.51e-01',
+                 'children': [{'name': '17',
+                   'lbd': '9.51e-01',
+                   'children': [{'name': '19',
+                     'lbd': '9.51e-01',
+                     'children': [{'name': '21',
+                       'lbd': '9.51e-01',
+                       'children': [{'name': '23',
+                         'lbd': '9.51e-01',
+                         'children': [{'name': '25',
+                           'lbd': '9.51e-01',
+                           'children': [{'name': '27',
+                             'lbd': '9.51e-01',
+                             'children': [{'name': '29', 'lbd': '9.6086e-01'},
+                              {'name': '30',
+                               'lbd': '9.51e-01',
+                               'children': [{'name': '31',
+                                 'lbd': '9.51e-01',
+                                 'children': [{'name': '33',
+                                   'lbd': '9.52e-01',
+                                   'children': [{'name': '35',
+                                     'lbd': '9.52e-01',
+                                     'children': [{'name': '37',
+                                       'lbd': '9.52e-01',
+                                       'children': [{'name': '75',
+                                         'lbd': '9.52e-01',
+                                         'children': [{'name': '77',
+                                           'lbd': '9.52e-01',
+                                           'children': [{'name': '79',
+                                             'lbd': '9.5489e-01'},
+                                            {'name': '80',
+                                             'lbd': '9.52e-01',
+                                             'children': [{'name': '83',
+                                               'lbd': '9.5437e-01'},
+                                              {'name': '84',
+                                               'lbd': '9.52e-01',
+                                               'children': [{'name': '85',
+                                                 'lbd': '9.52e-01',
+                                                 'children': [{'name': '87',
+                                                   'lbd': '9.5309e-01'},
+                                                  {'name': '88',
+                                                   'lbd': '9.52e-01',
+                                                   'children': [{'name': '89',
+                                                     'lbd': 'inf'},
+                                                    {'name': '90',
+                                                     'lbd': '9.52e-01',
+                                                     'children': [{'name': '91',
+                                                       'lbd': '9.5334e-01'},
+                                                      {'name': '92',
+                                                       'lbd': '9.5269e-01'}]}]}]},
+                                                {'name': '86',
+                                                 'lbd': '9.5296e-01'}]}]}]},
+                                          {'name': '78',
+                                           'lbd': '9.5329e-01'}]},
+                                        {'name': '76', 'lbd': '9.5421e-01'}]},
+                                      {'name': '38',
+                                       'lbd': '9.52e-01',
+                                       'children': [{'name': '39',
+                                         'lbd': '9.52e-01',
+                                         'children': [{'name': '41',
+                                           'lbd': '9.52e-01',
+                                           'children': [{'name': '43',
+                                             'lbd': '9.5420e-01'},
+                                            {'name': '44',
+                                             'lbd': '9.52e-01',
+                                             'children': [{'name': '45',
+                                               'lbd': '9.52e-01',
+                                               'children': [{'name': '47',
+                                                 'lbd': '9.52e-01',
+                                                 'children': [{'name': '49',
+                                                   'lbd': '9.52e-01',
+                                                   'children': [{'name': '53',
+                                                     'lbd': 'inf'},
+                                                    {'name': '54',
+                                                     'lbd': '9.52e-01',
+                                                     'children': [{'name': '63',
+                                                       'lbd': '9.5292e-01'},
+                                                      {'name': '64',
+                                                       'lbd': '9.5235e-01'}]}]},
+                                                  {'name': '50',
+                                                   'lbd': '9.52e-01',
+                                                   'children': [{'name': '51',
+                                                     'lbd': 'inf'},
+                                                    {'name': '52',
+                                                     'lbd': '9.52e-01',
+                                                     'children': [{'name': '61',
+                                                       'lbd': '9.5291e-01'},
+                                                      {'name': '62',
+                                                       'lbd': '9.52e-01',
+                                                       'children': [{'name': '93',
+                                                         'lbd': '9.52e-01',
+                                                         'children': [{'name': '95',
+                                                           'lbd': '9.5281e-01'},
+                                                          {'name': '96',
+                                                           'lbd': '9.5266e-01'}]},
+                                                        {'name': '94',
+                                                         'lbd': '9.5296e-01'}]}]}]}]},
+                                                {'name': '48',
+                                                 'lbd': '9.5287e-01'}]},
+                                              {'name': '46',
+                                               'lbd': '9.52e-01',
+                                               'children': [{'name': '71',
+                                                 'lbd': '9.52e-01',
+                                                 'children': [{'name': '73',
+                                                   'lbd': 'inf'},
+                                                  {'name': '74',
+                                                   'lbd': '9.52e-01',
+                                                   'children': [{'name': '81',
+                                                     'lbd': '9.5310e-01'},
+                                                    {'name': '82',
+                                                     'lbd': '9.5262e-01'}]}]},
+                                                {'name': '72',
+                                                 'lbd': '9.5341e-01'}]}]}]},
+                                          {'name': '42',
+                                           'lbd': '9.5289e-01'}]},
+                                        {'name': '40',
+                                         'lbd': '9.5501e-01'}]}]},
+                                    {'name': '36', 'lbd': '9.5588e-01'}]},
+                                  {'name': '34',
+                                   'lbd': '9.52e-01',
+                                   'children': [{'name': '55',
+                                     'lbd': '9.52e-01',
+                                     'children': [{'name': '57',
+                                       'lbd': '9.52e-01',
+                                       'children': [{'name': '59',
+                                         'lbd': '9.5331e-01'},
+                                        {'name': '60',
+                                         'lbd': '9.52e-01',
+                                         'children': [{'name': '65',
+                                           'lbd': '9.5425e-01'},
+                                          {'name': '66',
+                                           'lbd': '9.52e-01',
+                                           'children': [{'name': '67',
+                                             'lbd': '9.52e-01',
+                                             'children': [{'name': '69',
+                                               'lbd': '9.5247e-01'},
+                                              {'name': '70',
+                                               'lbd': '9.5271e-01'}]},
+                                            {'name': '68',
+                                             'lbd': '9.5347e-01'}]}]}]},
+                                      {'name': '58', 'lbd': '9.5639e-01'}]},
+                                    {'name': '56', 'lbd': '9.5258e-01'}]}]},
+                                {'name': '32', 'lbd': '9.5385e-01'}]}]},
+                            {'name': '28', 'lbd': '9.5364e-01'}]},
+                          {'name': '26', 'lbd': '9.6581e-01'}]},
+                        {'name': '24', 'lbd': '9.5882e-01'}]},
+                      {'name': '22', 'lbd': '9.7080e-01'}]},
+                    {'name': '20', 'lbd': '9.8854e-01'}]},
+                  {'name': '18', 'lbd': '9.8284e-01'}]},
+                {'name': '16', 'lbd': '1.0087e+00'}]},
+              {'name': '14', 'lbd': '1.0301e+00'}]},
+            {'name': '12', 'lbd': '1.0246e+00'}]},
+          {'name': '10', 'lbd': '1.0747e+00'}]},
+        {'name': '8', 'lbd': '1.1024e+00'}]},
+      {'name': '6', 'lbd': '1.0930e+00'}]},
+    {'name': '4', 'lbd': '1.1828e+00'}]},
+  {'name': '2', 'lbd': '1.2208e+00'}]};
+
+        const width = 300, height = 800;
+        const svg = d3.select("svg"),
+              g = svg.select("g");
+
+        const treeLayout = d3.tree().size([width - 200, height - 200]).nodeSize([40,40]) // More vertical & horizontal spacing
+                                            .separation((a, b) => a.parent === b.parent ? 5 : 5); // Adjusts sibling vs. branch spacing;
+        const root = d3.hierarchy(data);
+        treeLayout(root);
+
+        // Add zoom functionality
+        const zoom = d3.zoom().scaleExtent([0.5, 2]).on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+
+        svg.call(zoom);
+
+        // Color scale for LBD values
+        const colorScale = d3.scaleLinear()
+            .domain([10, 20])  // Adjust based on your LBD value range
+            .range(["blue", "red"]);
+
+        // Draw links
+        g.selectAll(".link")
+            .data(root.links())
+            .enter().append("line")
+            .attr("class", "link")
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y)
+            .attr("stroke", "#ccc")
+            .attr("stroke-width", 2);
+
+        // Draw nodes
+        const nodes = g.selectAll(".node")
+            .data(root.descendants())
+            .enter().append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+
+        nodes.append("circle")
+            .attr("r", 10)
+            .style("fill", d => colorScale(d.data.lbd));
+
+        nodes.append("text")
+            .attr("dy", 3)
+            .attr("x", d => d.children ? -15 : 15)
+            .text(d => `${d.data.name} (${d.data.lbd})`)
+            .style("text-anchor", d => d.children ? "end" : "start")
+            .style("font-size", "12px");
+    </script>
+</body>
+</html>

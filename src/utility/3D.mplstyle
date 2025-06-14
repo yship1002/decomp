@@ -1,0 +1,3 @@
+xtick.major.pad: 5
+ytick.major.pad: 5
+figure.autolayout: True

@@ -1,0 +1,3 @@
+font.family: serif
+font.serif: Computer Modern Roman
+text.usetex: True

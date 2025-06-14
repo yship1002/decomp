@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLECCS</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .node circle {
+            fill: steelblue;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        .node text {
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+        }
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <svg width="3000" height="800">
+        <g transform="translate(50,50)"></g>
+    </svg>
+
+    <script>
+        // Example hierarchical data with many nodes
+        const data = {'name': '0',
+ 'lbd': '-5.82e+08',
+ 'children': [{'name': '1', 'lbd': '-1.9445e+08'},
+  {'name': '2',
+   'lbd': '-5.28e+08',
+   'children': [{'name': '3', 'lbd': '-9.1928e+07'},
+    {'name': '4',
+     'lbd': '-5.25e+08',
+     'children': [{'name': '5',
+       'lbd': '-5.13e+08',
+       'children': [{'name': '7',
+         'lbd': '-5.13e+08',
+         'children': [{'name': '9', 'lbd': '-2.9042e+08'},
+          {'name': '10',
+           'lbd': '-4.99e+08',
+           'children': [{'name': '13', 'lbd': '-2.7708e+08'},
+            {'name': '14',
+             'lbd': '-4.98e+08',
+             'children': [{'name': '15', 'lbd': '-3.8666e+08'},
+              {'name': '16', 'lbd': '-4.9094e+08'}]}]}]},
+        {'name': '8',
+         'lbd': '-5.10e+08',
+         'children': [{'name': '11', 'lbd': '-2.8442e+08'},
+          {'name': '12',
+           'lbd': '-4.96e+08',
+           'children': [{'name': '19',
+             'lbd': '-4.96e+08',
+             'children': [{'name': '21', 'lbd': '-3.8366e+08'},
+              {'name': '22', 'lbd': '-4.8962e+08'}]},
+            {'name': '20', 'lbd': '-4.9181e+08'}]}]}]},
+      {'name': '6',
+       'lbd': '-4.98e+08',
+       'children': [{'name': '17', 'lbd': '-4.8574e+08'},
+        {'name': '18',
+         'lbd': '-4.96e+08',
+         'children': [{'name': '23',
+           'lbd': '-4.96e+08',
+           'children': [{'name': '25',
+             'lbd': '-4.96e+08',
+             'children': [{'name': '27',
+               'lbd': '-4.96e+08',
+               'children': [{'name': '29',
+                 'lbd': '-4.96e+08',
+                 'children': [{'name': '31', 'lbd': '-4.9554e+08'},
+                  {'name': '32', 'lbd': '-4.8745e+08'}]},
+                {'name': '30', 'lbd': '-4.9344e+08'}]},
+              {'name': '28', 'lbd': '-4.7799e+08'}]},
+            {'name': '26', 'lbd': '-4.9117e+08'}]},
+          {'name': '24', 'lbd': '-4.5909e+08'}]}]}]}]}]};
+
+        const width = 300, height = 800;
+        const svg = d3.select("svg"),
+              g = svg.select("g");
+
+        const treeLayout = d3.tree().size([width - 200, height - 200]).nodeSize([40,40]) // More vertical & horizontal spacing
+                                            .separation((a, b) => a.parent === b.parent ? 5 : 5); // Adjusts sibling vs. branch spacing;
+        const root = d3.hierarchy(data);
+        treeLayout(root);
+
+        // Add zoom functionality
+        const zoom = d3.zoom().scaleExtent([0.5, 2]).on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+
+        svg.call(zoom);
+
+        // Color scale for LBD values
+        const colorScale = d3.scaleLinear()
+            .domain([10, 20])  // Adjust based on your LBD value range
+            .range(["blue", "red"]);
+
+        // Draw links
+        g.selectAll(".link")
+            .data(root.links())
+            .enter().append("line")
+            .attr("class", "link")
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y)
+            .attr("stroke", "#ccc")
+            .attr("stroke-width", 2);
+
+        // Draw nodes
+        const nodes = g.selectAll(".node")
+            .data(root.descendants())
+            .enter().append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${d.x},${d.y})`);
+
+        nodes.append("circle")
+            .attr("r", 10)
+            .style("fill", d => colorScale(d.data.lbd));
+
+        nodes.append("text")
+            .attr("dy", 3)
+            .attr("x", d => d.children ? -15 : 15)
+            .text(d => `${d.data.name} (${d.data.lbd})`)
+            .style("text-anchor", d => d.children ? "end" : "start")
+            .style("font-size", "12px");
+    </script>
+</body>
+</html>
