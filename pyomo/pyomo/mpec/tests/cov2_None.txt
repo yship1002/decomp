@@ -1,2 +1,0 @@
-cc : Size=0, Index={0, 1, 2}, Active=True
-    Key : Arg0 : Arg1 : Active
