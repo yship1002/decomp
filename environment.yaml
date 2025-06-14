@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - pyomo=6.9.2
   - ampl-mp=3.1.0=h21a7fc1_1005
   - anyio=4.3.0=pyhd8ed1ab_0
   - appnope=0.1.4=pyhd8ed1ab_0
