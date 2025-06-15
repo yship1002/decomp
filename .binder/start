@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /home/jovyan/target_dir
+exec "$@"
