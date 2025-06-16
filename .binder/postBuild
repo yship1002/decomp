@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Create IPython startup folder if it doesn't exist
+mkdir -p ../.ipython/profile_default/startup
+
+# Write Python code to always set working dir to /home/jovyan/myproject
+cat <<EOF > ../.ipython/profile_default/startup/00-startup.py
+import os
+from pathlib import Path
+
+# Set working directory for all notebooks
+os.chdir(Path("/home/jovyan").resolve())
+print(f"Changed working directory to: {os.getcwd()}")
+EOF
