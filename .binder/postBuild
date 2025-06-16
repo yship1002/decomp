@@ -8,7 +8,7 @@ echo "" >> /home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'os.environ["PATH"] += ":/home/jovyan/solver/baron-lin64"' >>/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'export PATH="/home/jovyan/solver/baron-lin64:$PATH"' >> ~/.bashrc
 echo 'export GRB_LICENSE_FILE="/home/jovyan/solver/gurobi.lic"' >> ~/.bashrc
-echo 'GUROBI_HOME="/home/jovyan/solver/gurobi912/armlinux64"' >> ~/.bashrc
+echo 'export GUROBI_HOME="/home/jovyan/solver/gurobi912/armlinux64"' >> ~/.bashrc
 echo 'export PATH="/home/jovyan/solver/gurobi912/armlinux64:$PATH"' >> ~/.bashrc
 echo 'export LD_LIBRARY_PATH="/home/jovyan/solver/gurobi912/armlinux64/lib:$LD_LIBRARY_PATH"' >> ~/.bashrc
 cd /home/jovyan/
