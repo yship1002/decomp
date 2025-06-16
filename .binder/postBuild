@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p ~/.ipython/profile_default/startup
+cp .binder/set_workdir.py ~/.ipython/profile_default/startup/

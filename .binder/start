@@ -1,3 +1,4 @@
 #!/bin/bash
 cd /home/jovyan/
+chmod +x .binder/postBuild
 exec "$@"
