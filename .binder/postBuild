@@ -9,7 +9,7 @@ echo 'os.environ["PATH"] += ":/home/jovyan/solver/baron-lin64"' >>/home/jovyan/.
 echo 'export PATH="/home/jovyan/solver/baron-lin64:$PATH"' >> ~/.bashrc
 
 cd /home/jovyan/
-git clone git@github.com:yship1002/pyomo.git
+git clone https://github.com/yship1002/pyomo.git
 cd /home/jovyan/pyomo
 pip install -e .
 cd /home/jovyan
