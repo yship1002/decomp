@@ -4,5 +4,7 @@ mkdir -p /home/jovyan/.ipython/profile_default/startup/
 echo "import os">/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo "" >>/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo "os.chdir('/home/jovyan/')" >>/home/jovyan/.ipython/profile_default/startup/00-first.py
+echo "" >> /home/jovyan/.ipython/profile_default/startup/00-first.py
+echo 'os.environ["PATH"] += ":/home/jovyan/solver/baron-lin64"' >>/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'export PATH="/home/jovyan/solver/baron-lin64:$PATH"' >> ~/.bashrc
 source ~/.bashrc
