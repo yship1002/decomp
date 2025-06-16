@@ -2,6 +2,7 @@
 
 This repository contains the code for analyzing existing decomposition methods
 that globally solve nonconvex stochastic optimization problems.
+
 [![Open in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/yship1002/decomp/HEAD)
 
 ## Main Features
