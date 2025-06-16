@@ -7,6 +7,10 @@ dependencies:
   - voila
   - ipykernel
   - matplotlib
+  - pandas
+  - seaborn
+  - scikit-learn
+  - scikit-optimize
   - numpy
   - scipy
   - pip
