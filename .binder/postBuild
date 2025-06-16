@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Write a simple message to a file
+echo "import os">/home/jovyan/.ipython/profile_default/startup/00-first.py
+echo "" >>/home/jovyan/.ipython/profile_default/startup/00-first.py
+echo "os.chdir('/home/jovyan/')" >>/home/jovyan/.ipython/profile_default/startup/00-first.py
