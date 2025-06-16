@@ -1,4 +1,4 @@
 #!/bin/bash
 cd /home/jovyan/
-chmod +x .binder/postBuild
+export PYTHONPATH=/home/jovyan/target_dir:$PYTHONPATH
 exec "$@"
