@@ -1,4 +1,4 @@
 #!/bin/bash
 cd /home/jovyan/
-export PYTHONPATH=/home/jovyan/target_dir:$PYTHONPATH
+export PYTHONPATH=/home/jovyan/:$PYTHONPATH
 exec "$@"
