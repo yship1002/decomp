@@ -7,10 +7,10 @@ echo "os.chdir('/home/jovyan/')" >>/home/jovyan/.ipython/profile_default/startup
 echo "" >> /home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'os.environ["PATH"] += ":/home/jovyan/solver/baron-lin64"' >>/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'export PATH="/home/jovyan/solver/baron-lin64:$PATH"' >> ~/.bashrc
-echo 'export GRB_LICENSE_FILE="/home/jovyan/solver/gurobi.lic"' >> ~/.bashrc
-echo 'export GUROBI_HOME="/home/jovyan/solver/gurobi912/armlinux64"' >> ~/.bashrc
-echo 'export PATH="/home/jovyan/solver/gurobi912/armlinux64:$PATH"' >> ~/.bashrc
-echo 'export LD_LIBRARY_PATH="/home/jovyan/solver/gurobi912/armlinux64/lib:$LD_LIBRARY_PATH"' >> ~/.bashrc
+
+echo 'export GUROBI_HOME="/home/jovyan/solver/gurobi1202/linux64/"' >> ~/.bashrc
+echo 'export PATH="/home/jovyan/solver/gurobi1202/linux64/bin:$PATH"' >> ~/.bashrc
+grbgetkey 472444ed-b610-47f5-83e0-6845c751f165
 cd /home/jovyan/
 git clone https://github.com/yship1002/pyomo.git
 cd /home/jovyan/pyomo
