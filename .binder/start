@@ -1,6 +1,7 @@
 #!/bin/bash
 cd /home/jovyan/
 export PYTHONPATH=/home/jovyan/:$PYTHONPATH
-jupyter notebook --generate-config
-echo "c.NotebookApp.notebook_dir = '/home/jovyan/'" >> /home/jovyan/.jupyter/jupyter_notebook_config.py
+# jupyter notebook --generate-config
+# echo "c.NotebookApp.notebook_dir = '/home/jovyan/'" >> /home/jovyan/.jupyter/jupyter_notebook_config.py
+echo "import os \n os.chdir("/home/jovyan") \n print("⚙️ Changed working directory to /home/jovyan/")">>/home/jovyan/.ipython/profile_default/startup/00-first.py
 exec "$@"
