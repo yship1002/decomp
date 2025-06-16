@@ -3,8 +3,7 @@
 This repository contains the code for analyzing existing decomposition methods
 that globally solve nonconvex stochastic optimization problems.
 
-[![Open in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/yship1002/decomp/HEAD?urlpath=voila/render/graphing/node_analysis.ipynb>
-)
+[![Open in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/yship1002/decomp/HEAD?urlpath=voila%2Frender%2Flauncher.ipynb)
 
 ## Main Features
 - Partially reproduced the bounding schemes in two state-of-the-art decomposition algorithms: [Cao & Zavala](https://link.springer.com/article/10.1007/s10898-019-00769-y) and [Li & Grossmann](https://link.springer.com/article/10.1007/s10898-019-00816-8)
