@@ -1,0 +1,6 @@
+Academic single-user license for BARON.
+Licensed to Jingzhi Yang at Georgia Institute of Technology, jyang872@gatech.edu.
+License upgrades for all versions of BARON dating from 19-Mar-2025 to 18-Apr-2026.
+License valid until 18-Apr-2026.
+B97B09272E5629DD
+
