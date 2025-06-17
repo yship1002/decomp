@@ -185,12 +185,12 @@ class ValueFunction:
         total_value_func = np.zeros(step)
 
         l = len(str(step))
-        print(" " * l * 2 + "  points have been estimated...", end="\r")
+        #print(" " * l * 2 + "  points have been estimated...", end="\r")
 
         # iterate through each point
         for i in range(step):
 
-            print(f"{i + 1:>{l}}/{step}", end="\r")
+            #print(f"{i + 1:>{l}}/{step}", end="\r")
 
             # update idx value
             y_val_fix[idx] = interval_dis[i]
