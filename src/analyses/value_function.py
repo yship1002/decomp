@@ -167,7 +167,6 @@ class ValueFunction:
         # suppress the error message when it attempts to get the objective value
         # from an infeasible node
         logging.getLogger('pyomo.core').setLevel(logging.CRITICAL)
-
         # store idx
         self.idx_1 = idx
 
@@ -198,15 +197,17 @@ class ValueFunction:
             # solve all subproblems
             for s in self.model.scenarios:
 
-                model = self.model.aux_models['lbd'][s]
+                m = self.model.aux_models['lbd'][s]
 
                 # update y_val_fix to model
                 for y_idx in y_val_fix:
-                    model.y[y_idx].fix(y_val_fix[y_idx])
+                    m.y[y_idx].fix(y_val_fix[y_idx])
 
                 # solve the model
-                results = self.solver.solve(model)
+                results = self.solver.solve(m)
 
+                for y_idx in y_val_fix:
+                    m.y[y_idx].unfix()
                 value_func[s][i] = filter_infty(results.problem[0]['Upper bound'])
 
                 total_value_func[i] += value_func[s][i]
