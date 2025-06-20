@@ -8,11 +8,6 @@ echo "" >> /home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'os.environ["PATH"] += ":/home/jovyan/solver/baron-lin64"' >>/home/jovyan/.ipython/profile_default/startup/00-first.py
 echo 'export PATH="/home/jovyan/solver/baron-lin64:$PATH"' >> ~/.bashrc
 
-echo 'export GUROBI_HOME="/home/jovyan/solver/gurobi1202/linux64/"' >> ~/.bashrc
-echo 'export PATH="/home/jovyan/solver/gurobi1202/linux64/bin:$PATH"' >> ~/.bashrc
-grbgetkey 472444ed-b610-47f5-83e0-6845c751f165
-cd /home/jovyan/
-git clone https://github.com/yship1002/pyomo.git
 cd /home/jovyan/pyomo
 pip install -e .
 cd /home/jovyan
