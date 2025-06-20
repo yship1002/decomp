@@ -1,0 +1,3 @@
+[submodule "pyomo"]
+	path = pyomo
+	url = https://github.com/yship1002/pyomo.git
