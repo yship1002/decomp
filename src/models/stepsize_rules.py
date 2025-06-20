@@ -96,8 +96,8 @@ class ColorTVRule(StepsizeRule):
 
         # update color and n's
         improve_threshold = self.tol * max(best_lbd, 1)
-        print("green flag",self.n_g,"yellow flag",self.n_y,"red flag",self.n_r)
-        print("product",product,"improve",improve,"improve_threshold",improve_threshold)
+        # print("green flag",self.n_g,"yellow flag",self.n_y,"red flag",self.n_r)
+        # print("product",product,"improve",improve,"improve_threshold",improve_threshold)
         if (product > self.tol) and (improve > improve_threshold):
             self.n_y = self.n_r = 0
             self.n_g += 1

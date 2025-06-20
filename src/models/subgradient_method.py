@@ -130,8 +130,8 @@ class SubgradientMethod:
             # 3. update multiplier
             self._update_multiplier(direction, stepsize)
 
-            print("iter",self.iter,"stepsize",stepsize,"subgradient",self.subgradient_set[-1])
-            print("direction",direction,"multiplier",self.multiplier_set[-1])
+            # print("iter",self.iter,"stepsize",stepsize,"subgradient",self.subgradient_set[-1])
+            # print("direction",direction,"multiplier",self.multiplier_set[-1])
             # 4. solve Lagrangean problems
             self._solve(**kwargs)
             self.iter += 1
@@ -184,7 +184,7 @@ class SubgradientMethod:
             m = self.models[s]
             results = self.solver.solve(m, **kwargs)
             if 'infeasible' in results.solver.termination_condition:
-                print("infeasible")
+                print(f"Scenario {s} is infeasible!!!!!")
                 _lbds[s] = float('inf')
             else:
                 _lbds[s] = results['Problem'][0]['Lower bound']
