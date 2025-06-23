@@ -159,7 +159,7 @@ class BranchBoundNode:
         self.right.multiplier_set = self.multiplier_set.copy()
         self.left.obj_val_set = self.obj_val_set.copy()
         self.right.obj_val_set = self.obj_val_set.copy()
-
+        a=1
     def store_cuts(self, sm: SubgradientMethod):
         """
         add the multipliers and objective from subgradient method to the node.

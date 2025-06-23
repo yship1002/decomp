@@ -133,18 +133,19 @@ class SubgradientMethod:
             # print("iter",self.iter,"stepsize",stepsize,"subgradient",self.subgradient_set[-1])
             # print("direction",direction,"multiplier",self.multiplier_set[-1])
             # 4. solve Lagrangean problems
+
             self._solve(**kwargs)
             self.iter += 1
-        best_mu=self.best_mu
+
+        # best_mu=self.best_mu
         # comment out if you want to test perturb
         # perturb=1.001
         # best_mu["s2"][0]*= perturb
         # best_mu["s3"][0]*= perturb
         # best_mu["s1"][0]=-best_mu["s2"][0]-best_mu["s3"][0]
-        self.multiplier_set.append(best_mu)
-
-        self._set_multiplier(best_mu)
-        self._solve(**kwargs)
+        # self.multiplier_set.append(best_mu)
+        # self._set_multiplier(best_mu)
+        # self._solve(**kwargs)
     def _initialize(self, **kwargs):
 
         # set initial multiplier
@@ -184,7 +185,6 @@ class SubgradientMethod:
             m = self.models[s]
             results = self.solver.solve(m, **kwargs)
             if 'infeasible' in results.solver.termination_condition:
-                print(f"Scenario {s} is infeasible!!!!!")
                 _lbds[s] = float('inf')
             else:
                 _lbds[s] = results['Problem'][0]['Lower bound']

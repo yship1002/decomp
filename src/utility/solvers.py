@@ -117,7 +117,7 @@ class BaronSolver(_Solver):
 
         # overwrite the default settings from imput
         spec['options']["FirstLoc"]=kwargs.get('first_loc', 0)
-        spec['tee'] = kwargs.get('tee', spec['tee'])
+        spec['tee'] = kwargs.get('tee', False)
         spec['keepfiles'] = kwargs.get('keepfiles', False)
         spec['symbolic_solver_labels'] = kwargs.get('symbolic_solver_labels', False)
         spec['options']['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])

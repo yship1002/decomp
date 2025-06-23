@@ -241,9 +241,10 @@ class LagrangeanAlgo(DecompAlgo):
         # run the subgradient method
         self._init_sm()  ## i add this line to get rid of stepsize left behind from previous iteration
         self.sm.run(self.lag_iter, **kwargs)
-
+        if sum(self.sm.obj_val_set[-1][s] for s in self.sm.scenarios) >1e20:
+            return sum(self.sm.obj_val_set[-1][s] for s in self.sm.scenarios)
         # add cuts to the node
-
+ 
         node.store_cuts(self.sm)
 
         # add time
@@ -264,7 +265,6 @@ class LagrangeanAlgo(DecompAlgo):
         lbd = self._solve_benders(node,**kwargs)
 
         logger_lbd.info(f"\tDone.")
-
         return lbd
 
     def _solve_benders(self, node: BranchBoundNode, **kwargs):

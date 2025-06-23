@@ -20,7 +20,7 @@ class STSubgradRule(DeflectionRule):
     """
 
     def __init__(self):
-        self.alpha = 0.5  ### i changed it from 1 to 0.5
+        self.alpha =1
 
     def deflect(self):
         return self.alpha
