@@ -2,11 +2,8 @@
 
 This repository contains the code for analyzing existing decomposition methods
 that globally solve nonconvex stochastic optimization problems.
-Voila:
 
-[![Open in Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/yship1002/decomp/HEAD?urlpath=voila%2Frender%2Flauncher.ipynb)
-
-Regular:
+Run notebook online:
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/yship1002/decomp/HEAD)
 
