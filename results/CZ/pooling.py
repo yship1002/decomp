@@ -3,40 +3,44 @@ from src.models.cz_model import CaoZavalaModel, CaoZavalaAlgo
 from src.analyses.convergence_analysis import HausdorffAnalyzer
 import dill
 def main():
-    pooling_obj=-1338.2471283376406
+    eps=3
+    # create StochasticModel instance
     sto_m = const_model()
-    m = CaoZavalaModel.from_sto_m(sto_m)
-    m.build()
-    crude_sol = {f'crudeQuantity[{i}]': 0. for i in range(1, 10 + 1)}
-    crude_sol['crudeQuantity[2]'] = 150.87595641747944
-    crude_sol['crudeQuantity[3]'] = 201.29570746971186
-    crude_sol['crudeQuantity[4]'] = 56.18456149457359
-    crude_sol['crudeQuantity[8]'] = 162.2466500589715
-    crude_sol['crudeQuantity[10]'] = 18.848116800048512
-    binary_ys = [f'pickCrude[{i}]' for i in range(1, 10 + 1)]
-    binary_y_val = {y: 0 for y in binary_ys}
-    binary_y_val['pickCrude[2]'] = 1
-    binary_y_val['pickCrude[3]'] = 1
-    binary_y_val['pickCrude[4]'] = 1
-    binary_y_val['pickCrude[8]'] = 1
-    binary_y_val['pickCrude[10]'] = 1
-    m.fix_binary_y(binary_y_val)
-    updated_y_bound=m.y_bound
-    updated_y_bound['crudeQuantity[1]']=(0,0)
-    updated_y_bound['crudeQuantity[5]']=(0,0)
-    updated_y_bound['crudeQuantity[6]']=(0,0)
-    updated_y_bound['crudeQuantity[7]']=(0,0)
-    updated_y_bound['crudeQuantity[9]']=(0,0)
-    m.update_y_bound(updated_y_bound)
-    alg=CaoZavalaAlgo(m,solver="baron")
-    haus=HausdorffAnalyzer(alg)
-    epsilon=abs(0.03*crude_obj)
-    new_bound=haus._gen_interval(y=crude_sol, eps=2*epsilon/97.28870987007144*2)  #reuse _gen_interval multiply by 2 to fit our need
 
-    m.update_y_bound(new_bound)
-    alg=CaoZavalaAlgo(m,solver="baron")
-    alg.solve(max_iter=1e8, max_time=3600*24, tol=0.03,ubd_midpt_fix=0,ubd_local_solve=1,ubd_provided=-18350.146929613762) #JY:relative tolerance
-    with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/DecompConv/L_data/pooling.pkl', 'wb') as f:
+    # create CaoZavalaModel instance from sto_m
+    m = CaoZavalaModel.from_sto_m(sto_m)
+    # build the model
+    m.build()
+
+    # declare binary first-stage variables
+    binary_ys = ['lambd[1]', 'lambd[2]', 'lambd[3]', 'lambd[4]', 'lambd[5]', 'theta[1]', 'theta[2]', 'theta[3]', 'theta[4]']
+
+    binary_y_val = {y: 0 for y in binary_ys}
+    binary_y_val['lambd[1]'] = 1
+    binary_y_val['lambd[2]'] = 1
+    binary_y_val['lambd[5]'] = 1
+    binary_y_val['theta[1]'] = 1
+    binary_y_val['theta[4]'] = 1
+    m.fix_binary_y(binary_y_val)
+
+    pooling_obj=-1338.2471283376406
+    pooling_sol = {
+        'A[1]': 300.0, 'A[2]': 201.92127476313524, 'A[3]': 0.0, 'A[4]': 0.0, 'A[5]': 245.18105081826008,
+        'S[1]': 247.10232558139526, 'S[2]': 0.0, 'S[3]': 0.0, 'S[4]': 500.0
+    }
+
+    pooling_y_bound = {
+        'A[1]': [0, 300], 'A[2]': [0, 250], 'A[3]': [0, 0], 'A[4]': [0, 0], 'A[5]': [0, 300],
+        'S[1]': [0, 400], 'S[2]': [0, 0], 'S[3]': [0, 0], 'S[4]': [0, 500]
+    }
+    updated_pooling_y_bound = {
+        'A[1]': (300.0-eps, 300.0+eps), 'A[2]': (201.92127476313524-eps, 201.92127476313524+eps), 'A[3]': (0.0, 0.0), 'A[4]': (0.0, 0.0), 'A[5]': (245.18105081826008-eps, 245.18105081826008+eps),
+        'S[1]': (247.10232558139526-eps, 247.10232558139526+eps), 'S[2]': (0.0, 0.0), 'S[3]': (0.0, 0.0), 'S[4]': (500.0-eps, 500.0+eps)
+    }
+    m.update_y_bound(updated_pooling_y_bound)
+    alg = CaoZavalaAlgo(m, solver='baron')
+    alg.solve(max_iter=1e8, max_time=3600*24, tol=1e-3,ubd_midpt_fix=0,ubd_local_solve=0,ubd_provided=-1338.2471283376406) #JY:relative tolerance
+    with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/pooling.pkl', 'wb') as f:
         dill.dump(alg, f)
 if __name__ == '__main__':
     main()
