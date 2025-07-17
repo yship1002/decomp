@@ -96,14 +96,14 @@ class BaronSolver(_Solver):
 
         self.spec['options'] = {
             # relative optimality gap
-            'EpsR': 1e-6,
+            'EpsR': 1e-8,
             # 'EpsA': 1e-1,
             # # maximum iteration
             # 'MaxIter': 1000,
             # # absolute constraint feasible tolerance
             # 'AbsConFeasTol': 1e-6
             # maximum solving time
-            'MaxTime': 1000
+            'MaxTime': 10000
         }
 
     def solve(self, model: PyomoModel, **kwargs):

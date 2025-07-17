@@ -202,8 +202,8 @@ class ValueFunction:
                 # update y_val_fix to model
                 for y_idx in y_val_fix:
                     #m.y[y_idx].fix(y_val_fix[y_idx])
-                    m.y[y_idx].setlb(y_val_fix[y_idx]-1e-3)  # set lower bound
-                    m.y[y_idx].setub(y_val_fix[y_idx]+1e-3)  # set upper bound
+                    m.y[y_idx].setlb(y_val_fix[y_idx]-1e-2)  # set lower bound
+                    m.y[y_idx].setub(y_val_fix[y_idx]+1e-2)  # set upper bound
 
 
                 # solve the model
