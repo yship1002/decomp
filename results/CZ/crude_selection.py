@@ -17,10 +17,15 @@ def main():
     binary_y_val['pickCrude[10]'] = 1
     m.fix_binary_y(binary_y_val)
     updated_y_bound=m.y_bound
+    updated_y_bound["crudeQuantity[1]"]=(0,0)
     updated_y_bound["crudeQuantity[2]"]=(150.87595641747944-eps,150.87595641747944+eps)
     updated_y_bound["crudeQuantity[3]"]=(201.29570746971186-eps,201.29570746971186+eps)
     updated_y_bound["crudeQuantity[4]"]=(56.18456149457359-eps,56.18456149457359+eps)
+    updated_y_bound["crudeQuantity[5]"]=(0,0)
+    updated_y_bound["crudeQuantity[6]"]=(0,0)
+    updated_y_bound["crudeQuantity[7]"]=(0,0)
     updated_y_bound["crudeQuantity[8]"]=(162.2466500589715-eps,162.2466500589715+eps)
+    updated_y_bound["crudeQuantity[9]"]=(0,0)
     updated_y_bound["crudeQuantity[10]"]=(18.848116800048512-eps,18.848116800048512+eps)
     m.update_y_bound(updated_y_bound)
     crude_obj = -18350.146929611754

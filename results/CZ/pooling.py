@@ -3,7 +3,7 @@ from src.models.cz_model import CaoZavalaModel, CaoZavalaAlgo
 from src.analyses.convergence_analysis import HausdorffAnalyzer
 import dill
 def main():
-    eps=3
+    eps=5
     # create StochasticModel instance
     sto_m = const_model()
 
