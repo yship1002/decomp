@@ -63,9 +63,13 @@ class BranchBoundNode:
                 self.add_time('lbd', res.problem[0]["Wall time"])
                 self.lbd_time_cz.append(res.problem[0]["Wall time"])
 
-            except: # this is when subproblem is inherited from parent
-                self.add_time('lbd', res.solver[0]["Wallclock time"]) # type: ignore
-                self.lbd_time_cz.append(res.solver[0]["Wallclock time"])
+            except: 
+                try: 
+                    self.add_time('lbd', res.solver[0]["Wallclock time"]) # type: ignore
+                    self.lbd_time_cz.append(res.solver[0]["Wallclock time"])
+                except:
+                    self.add_time('lbd', res["Solver"][0]["Time"])
+                    self.lbd_time_cz.append(res["Solver"][0]["Time"])
 
             # collect root node time and add node count (only support baron not gurobi)
             self.root_node_time.append(res.solver.root_node_time)
