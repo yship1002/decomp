@@ -4,7 +4,7 @@ import dill
 import numpy as np
 def main():
     from NSPLIB.src.instances.crude_selection.crude_selection import const_model
-    eps=5
+    eps=0.5
     sto_m = const_model()
     m = CaoZavalaModel.from_sto_m(sto_m)
     m.build()
