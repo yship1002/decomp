@@ -419,6 +419,7 @@ class BranchBoundNodeList:
         ax.set_xlabel(f"dimension {idx_1}")
         ax.set_ylabel(f"dimension {idx_2}")
 
+
     def count_nodes(self):
         """
         Count the number of nodes in the list.

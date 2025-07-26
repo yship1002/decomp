@@ -814,7 +814,6 @@ class SBBResult:
         plt.xlabel('1 / gap')
         plt.ylabel('node number')
         plt.grid(True, which='major', axis='both')
-
         plt.legend()
 
     def save(self, instance_name: str, note: str = ''):

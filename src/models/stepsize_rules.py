@@ -38,7 +38,7 @@ class ColorTVRule(StepsizeRule):
     def __init__(self):
 
         # self.factor_0 = 0.001
-        self.factor_0 = 1.5
+        self.factor_0 = 0.1
         self.factors = [self.factor_0, ]
 
         self.tol = 1e-6
@@ -51,7 +51,7 @@ class ColorTVRule(StepsizeRule):
         self.n_y = 0
         self.n_r = 0
 
-        self.factor_min = 5e-8
+        self.factor_min = 1e-10
 
     def _reset(self):
         self.factors = [self.factor_0, ]
