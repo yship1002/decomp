@@ -1,3 +1,0 @@
-TODO:
-root node count bug fix
-reuse solution from parentnode(basically working but temp fix regarding lazy evaluation print())
