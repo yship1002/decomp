@@ -176,6 +176,12 @@ class ValueFunction:
 
         # discretize idx in the given interval
         interval_dis = np.linspace(*interval, num=step) # type: ignore
+        
+        # ensure the given y_val_fix[idx] is in the discretization
+        replaceval=y_val_fix[idx]
+        replaceidx=np.searchsorted(interval_dis,replaceval)
+        interval_dis[replaceidx] = replaceval
+
         # store it to the object
         self.y_discrete = interval_dis
 

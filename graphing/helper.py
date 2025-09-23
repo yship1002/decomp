@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 def linear_func(x, a, b):
         return a * x + b
-def convergence_analysis(alg,fixed_pt,optimal_sol,start=-5,stop=0,steps=6,name="instance"):
+def convergence_analysis(alg,fixed_pt,optimal_sol,start=-5,stop=0,steps=6):
     haus=HausdorffAnalyzer(alg)
     eps_list, distances=haus.analyze(y=fixed_pt, v=optimal_sol,
                     eps_min= start, eps_max = stop, steps= steps,
@@ -20,9 +20,10 @@ def convergence_analysis(alg,fixed_pt,optimal_sol,start=-5,stop=0,steps=6,name="
     plt.grid()
     plt.xticks(np.logspace(start, stop, steps),fontsize=20)
     plt.yticks(fontsize=20)
-    plt.xlabel("epsilon",fontsize=20)
-    plt.ylabel("Hausdorff distance",fontsize=20)
-    plt.show()
+    plt.xlabel("Epsilon",fontsize=20)
+    plt.ylabel("Hausdorff Distance",fontsize=20)
+
+    return plt.gcf()
 def get_critical_width(alg,y_optimal,k=1,abs_epsilon=0.01):
     haus=HausdorffAnalyzer(alg)
     print(f"width: {abs_epsilon/k}")
