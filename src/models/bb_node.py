@@ -68,8 +68,11 @@ class BranchBoundNode:
                     self.add_time('lbd', res.solver[0]["Wallclock time"]) # type: ignore
                     self.lbd_time_cz.append(res.solver[0]["Wallclock time"])
                 except:
-                    self.add_time('lbd', res["Solver"][0]["Time"])
-                    self.lbd_time_cz.append(res["Solver"][0]["Time"])
+                    try:
+                        self.add_time('lbd', res["Timing info"]["wall_time"]) # type: ignore
+                        self.lbd_time_cz.append(res["Timing info"]["wall_time"])
+                    except:
+                        pass
 
             # collect root node time and add node count (only support baron not gurobi)
             self.root_node_time.append(res.solver.root_node_time)
@@ -91,7 +94,10 @@ class BranchBoundNode:
             try:
                 self.add_time('ubd', res.solver[0]["wall time"]) # type: ignore
             except:
-                self.add_time('ubd', res.solver.time)
+                try:
+                    self.add_time('ubd', res["Timing info"]["wall_time"]) # type: ignore
+                except:
+                    self.add_time('ubd', res.solver.time)
             if 'infeasible' in res.solver.termination_condition:
                 self.ubd = float('inf')
             else:
@@ -163,7 +169,7 @@ class BranchBoundNode:
         self.right.multiplier_set = self.multiplier_set.copy()
         self.left.obj_val_set = self.obj_val_set.copy()
         self.right.obj_val_set = self.obj_val_set.copy()
-        a=1
+
     def store_cuts(self, sm: SubgradientMethod):
         """
         add the multipliers and objective from subgradient method to the node.

@@ -62,14 +62,13 @@ class LagrangeanModel(CaoZavalaModel):
 
 
             # add the (mu * y) term into objective
-            if self.obj:
-                def obj(m):
-                    return self.obj[s](m, s) - sum(m.mu[i] * m.y[i] for i in self.y_set)
-                m.obj = Objective(expr=obj,sense=minimize)
-            else:
-                m.obj = Objective(expr=temp_obj - sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize) # type: ignore
-
-
+            # if self.obj:
+            #     def obj(m):
+            #         return self.obj[s](m, s) + sum(m.mu[i] * m.y[i] for i in self.y_set)
+            #     m.obj = Objective(expr=obj,sense=minimize)
+            # else:
+            #     m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
+            m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
     def _build_benders(self):
         """
         Build the Benders master problem for lower bounding.
@@ -114,11 +113,11 @@ class LagrangeanModel(CaoZavalaModel):
             for i in range(len(mu_set)):
                 for s in self.scenarios:
                     m.lagrangean_cuts.add(
-                        m.eta[s] >= obj_set[i][s] + sum(m.y[idx] * mu_set[i][s][idx] for idx in self.y_set))
+                        m.eta[s] >= obj_set[i][s] - sum(m.y[idx] * mu_set[i][s][idx] for idx in self.y_set))
         else:
             for s in self.scenarios:
                     m.lagrangean_cuts.add(
-                        m.eta[s] >= obj_set[s] + sum(m.y[idx] * mu_set[s][idx] for idx in self.y_set))
+                        m.eta[s] >= obj_set[s] - sum(m.y[idx] * mu_set[s][idx] for idx in self.y_set))
 
     def clear_cuts(self):
         """
@@ -240,9 +239,23 @@ class LagrangeanAlgo(DecompAlgo):
 
         # run the subgradient method
         self._init_sm()  ## i add this line to get rid of stepsize left behind from previous iteration
-        self.sm.run(self.lag_iter, **kwargs)
-        if sum(self.sm.obj_val_set[-1][s] for s in self.sm.scenarios) >1e20:
-            return sum(self.sm.obj_val_set[-1][s] for s in self.sm.scenarios)
+
+        if kwargs.get('inherit_multiplier', True):
+            if node.parent is not None:
+                # warm start multipliers from parent node
+                self.sm.run(self.lag_iter, second_time=True, warm_start=node.multiplier_set[-1], **kwargs)
+                #self.sm.run(self.lag_iter, **kwargs)
+            else:
+                # cold start
+                self.sm.run(self.lag_iter, **kwargs)
+        else:
+            # cold start
+            self.sm.run(self.lag_iter, **kwargs)
+
+        # if during the lagrangean iteration, the lower bound is infinite, return infinite
+        if self.sm.lbds[-1]== float('inf'):
+            return float('inf')
+
         # add cuts to the node
  
         node.store_cuts(self.sm)
@@ -257,14 +270,14 @@ class LagrangeanAlgo(DecompAlgo):
 
         # add Lagrangean cuts to Benders master problem
 
-        #self.model.add_cuts(node.multiplier_set, node.obj_val_set)
-        self.model.add_cuts(node.multiplier_set[-1], node.obj_val_set[-1])  # to test impact of multipler
+        self.model.add_cuts(node.multiplier_set, node.obj_val_set)
 
         # solve Benders master problem
 
         lbd = self._solve_benders(node,**kwargs)
 
         logger_lbd.info(f"\tDone.")
+        # skipping bender
         return lbd
 
     def _solve_benders(self, node: BranchBoundNode, **kwargs):
@@ -275,8 +288,12 @@ class LagrangeanAlgo(DecompAlgo):
         results = self.solver.solve(self.model.aux_models['benders'], tee=kwargs.get('tee', False),**kwargs)
 
         # add time
-        self.total_cpu_time += results.solver.time
-        node.add_time('benders', results.solver.time)
+        try:
+            self.total_cpu_time += results.solver.time
+            node.add_time('benders', results.solver.time)
+        except:
+            pass
+
         # store lower bound value & time to node
         node.record_sol(results, 'lbd')
 

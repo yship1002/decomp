@@ -204,7 +204,7 @@ class DecompModel(StochasticModel, ABC):
         args:
             y_bound (dict): The y-bound to be updated.
         """
-
+        self.y_bound = y_bound
         self.update_y_bound_origin(y_bound)
         self.update_y_bound_aux(y_bound)
 
@@ -587,7 +587,10 @@ class DecompAlgo(ABC):
         try:
             self.total_cpu_time += results.solver[0].time
         except:
-            self.total_cpu_time += results.solver[0]["wall time"]
+            try:
+                self.total_cpu_time += results["Timing info"]["wall_time"]
+            except:
+                self.total_cpu_time += results.solver[0]["wall time"]
 
         logger_ubd.info("\tDone!")
 

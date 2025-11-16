@@ -96,7 +96,7 @@ class SubgradientMethod:
         # timer
         self.total_cpu_time = 0
 
-    def run(self, lag_iter: int, **kwargs):
+    def run(self, lag_iter: int, second_time=False,warm_start=None,**kwargs):
         """
         Solve the Lagrangean dual problem via the subgradient method.
 
@@ -117,11 +117,19 @@ class SubgradientMethod:
         # reset timer
         self.total_cpu_time = 0
 
-        self._initialize(**kwargs)
+
+
+        if not second_time:
+            self._initialize(**kwargs)
+        else:
+            self._initialize(warm_start=warm_start, **kwargs)
+
+
 
         while self.iter < lag_iter:
             # 1. get direction and stepsize
             alpha = self.deflection_rule.deflect()
+            alpha=1
             direction = self._compute_direction(alpha)
             stepsize = self.stepsize_rule.update_stepsize_factor(direction, self.subgradient_set[-1], self.lbds, self.best_lbd)
             # 2. check stopping criteria
@@ -135,9 +143,13 @@ class SubgradientMethod:
             # 4. solve Lagrangean problems
 
             self._solve(**kwargs)
-            self.iter += 1
 
-        # best_mu=self.best_mu
+            self.iter += 1
+            print("Lagrangean iter:",self.iter,"Lower bound:",self.lbds[-1])
+            if self.lbds[-1]== float('inf'):
+                break
+
+
         # comment out if you want to test perturb
         # perturb=1.001
         # best_mu["s2"][0]*= perturb
@@ -146,16 +158,27 @@ class SubgradientMethod:
         # self.multiplier_set.append(best_mu)
         # self._set_multiplier(best_mu)
         # self._solve(**kwargs)
-    def _initialize(self, **kwargs):
 
-        # set initial multiplier
-        init_pi = {s: {idx: 0 for idx in self.y_set} for s in self.scenarios}
-        self.pi_set = [init_pi]
-        init_mu = {s: {idx: 0 for idx in self.y_set} for s in self.scenarios}
-        self.multiplier_set = [init_mu]
+    def _initialize(self, warm_start=None, **kwargs):
+        if warm_start is not None:
+            self.multiplier_set = [warm_start]
+            self._set_multiplier(warm_start)
+            init_pi = {s: {idx: 0 for idx in self.y_set} for s in self.scenarios} # first scenario should be always zero
+            for s in self.scenarios:
+                if s == self.scenarios[0]:
+                    continue
+                for idx in self.y_set:
+                    init_pi[s][idx] = -warm_start[s][idx]
+            self.pi_set = [init_pi]
+        else:
+            # set initial multiplier
+            init_pi = {s: {idx: 0 for idx in self.y_set} for s in self.scenarios} # first scenario should be always zero
+            self.pi_set = [init_pi]
+            init_mu = {s: {idx: 0 for idx in self.y_set} for s in self.scenarios}
+            self.multiplier_set = [init_mu]
 
-        # set multiplier to models
-        self._set_multiplier(init_mu)
+            # set multiplier to models
+            self._set_multiplier(init_mu)
 
         # initial objective value
         self.lbds = [- float("inf")]
@@ -188,7 +211,10 @@ class SubgradientMethod:
                 _lbds[s] = float('inf')
             else:
                 _lbds[s] = results['Problem'][0]['Lower bound']
-            self.total_cpu_time += results.solver.time
+            try:
+                self.total_cpu_time += results.solver.time
+            except Exception:
+                pass
 
         self._record_subgradient()
         self._record_lbd(_lbds)
@@ -210,8 +236,7 @@ class SubgradientMethod:
         for s in self.scenarios:
             new_direction[s] = {}
             for idx in self.y_set:
-                new_direction[s][idx] = alpha * subgradient[s][idx] + \
-                    (1 - alpha) * last_direction[s][idx]
+                new_direction[s][idx] = alpha * subgradient[s][idx] + (1 - alpha) * last_direction[s][idx]
 
         self.direction_set.append(new_direction)
 
@@ -245,11 +270,12 @@ class SubgradientMethod:
         subgradient = {s: {idx: 0 for idx in self.y_set} for s in scenarios}
         for s in scenarios:
             if s == first_scenario:
-                pass
+                continue
             else:
                 for y_idx in self.y_set:
                     subgradient[s][y_idx] = value(models[first_scenario].y[y_idx]) - value(models[s].y[y_idx])
 
+        
         self.subgradient_set.append(subgradient)
 
     def _set_multiplier(self, mu: Multiplier):
@@ -265,14 +291,17 @@ class SubgradientMethod:
 
         scenarios = self.scenarios
 
-        # update pi
+        # first update pi
         last_pi = self.pi_set[-1]
         new_pi = {}
-        for s in scenarios:
+        for s in scenarios: # skip the first scenario since it is always zero by construction
             new_pi[s] = {}
-            for y_idx in self.y_set:
-                new_pi[s][y_idx] = last_pi[s][y_idx] + \
-                    stepsize * direction[s][y_idx]
+            if s == scenarios[0]:  # pi:first scenario again should be empty
+                for y_idx in self.y_set:
+                    new_pi[s][y_idx] = 0
+            else:
+                for y_idx in self.y_set:
+                    new_pi[s][y_idx] = last_pi[s][y_idx] + stepsize * direction[s][y_idx] #dual maximiation problem where pi is the decision variable
 
         self.pi_set.append(new_pi)
 
@@ -281,11 +310,11 @@ class SubgradientMethod:
         for s in scenarios:
             new_mu[s] = {}
             for y_idx in self.y_set:
-                if s == scenarios[0]:
-                    new_mu[s][y_idx] = - sum(new_pi[_s][y_idx]
-                                             for _s in scenarios[1:])
+                if s == scenarios[0]: # mu:first scenario should be sum of others from the paper
+                    new_mu[s][y_idx] = sum(new_pi[_s][y_idx] for _s in scenarios[1:])
                 else:
-                    new_mu[s][y_idx] = new_pi[s][y_idx]
+                    new_mu[s][y_idx] = -new_pi[s][y_idx]
+                    
         self.multiplier_set.append(new_mu)
 
         self._set_multiplier(new_mu)

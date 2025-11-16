@@ -57,12 +57,15 @@ class GurobiSolver(_Solver):
 
     def __init__(self):
         super().__init__()
-
+        from pyomo.contrib.solver.solvers.gurobi_direct_minlp import GurobiDirectMINLP
+        #self.solver = SolverFactory('gurobi_direct_minlp')
         self.solver = SolverFactory('gurobi')
 
         self.spec['options'] = {
             # allow Gurobi to solve nonconvex MIQP problems
             'NonConvex': 2,
+            'OutputFlag': 0,
+            'LogToConsole': 0
         }
 
     def solve(self, model: PyomoModel, **kwargs):

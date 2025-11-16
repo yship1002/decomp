@@ -10,7 +10,7 @@ from src.utility.types import YBound
 import logging
 import pickle
 from pathlib import Path
-from multiprocessing import Pool
+from multiprocessing.dummy import Pool 
 logging.config.fileConfig(str(Path(__file__).parent.parent)+'/config.ini', disable_existing_loggers=False) # type: ignore
 logger_lbd = logging.getLogger('solve.lowerBound')
 # suppress the error message when it attempts to get the objective value from an
@@ -150,7 +150,16 @@ class CaoZavalaAlgo(DecompAlgo):
     def __init__(self, model: CaoZavalaModel, bt_init=False, bt_all=False, **kwargs):
         super().__init__(model, bt_init=bt_init, bt_all=bt_all, **kwargs)
     def let_solver_solve(self,arg_list):
-        results = self.solver.solve(self.model.aux_models['lbd'][arg_list[0]], tee=arg_list[1], tol=arg_list[2],first_loc=arg_list[3])
+        from pyomo.opt import SolverFactory
+        solver_name = getattr(self.solver, "name", None) or "baron"
+        opt = SolverFactory(solver_name)
+        # if you carry options on self.solver, copy them over
+        try:
+            for k, v in getattr(self.solver, "options", {}).items():
+                opt.options[k] = v
+        except Exception:
+            pass
+        results = opt.solve(self.model.aux_models['lbd'][arg_list[0]], tee=arg_list[1], tol=arg_list[2],first_loc=arg_list[3])
         return {"solveresult":results,"y_optimal":{k:v.value for k,v in self.model.aux_models['lbd'][arg_list[0]].y.items()}}
     def calc_lbd(self, node: BranchBoundNode, **kwargs):
         """
@@ -200,6 +209,7 @@ class CaoZavalaAlgo(DecompAlgo):
                 results = SolverResults()
                 print(results['Problem'])
                 results.solver.termination_condition=TerminationCondition.optimal
+                results['Problem'].add()
                 results['Problem'][0]['Lower bound']=node.parent.lbd_scenario[s]
                 results.solver[0]["Wallclock time"]=0
                 results.solver.root_node_time=0
