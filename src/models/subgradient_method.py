@@ -117,8 +117,6 @@ class SubgradientMethod:
         # reset timer
         self.total_cpu_time = 0
 
-
-
         if not second_time:
             self._initialize(**kwargs)
         else:

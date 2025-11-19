@@ -1,3 +1,7 @@
+from ast import Param
+
+from anyio import value
+from pyomo.pyomo.core.base.objective import Objective
 from src.models.bb_node import BranchBoundNode, BranchBoundNodeList
 from src.models.decomp_model import DecompAlgo
 from .cz_model import CaoZavalaModel
@@ -47,28 +51,33 @@ class LagrangeanModel(CaoZavalaModel):
         self.aux_models['lag'] = self.aux_models.pop('lbd')
 
         # add the `mu * y` term
-        for s in self.scenarios:
+        # for s in self.scenarios:
 
-            # m = self.lagrangean_subproblems[s]
-            m = self.aux_models['lag'][s]
+        #     # m = self.lagrangean_subproblems[s]
+        #     m = self.aux_models['lag'][s]
 
-            # add lagrangean multipliers (mu) as parameter
-            m.mu = Param(self.y_set, initialize={
-                         idx: 0 for idx in self.y_set}, mutable=True)
+        #     # add lagrangean multipliers (mu) as parameter
+        #     m.mu = Param(self.y_set, initialize={
+        #                  idx: 0 for idx in self.y_set}, mutable=True)
+            
+        #     # don't forget to update consensus_y parameter when starting augmented lagrangean
+        #     m.consensus_y=Param(self.y_set, initialize={idx: 0 for idx in self.y_set},mutable=True)
+        
+            
+        #     # delete the old objective to avoid warning
+        #     temp_obj=m.obj
+        #     m.del_component(m.obj)
 
-            # delete the old objective to avoid warning
-            temp_obj=m.obj
-            m.del_component(m.obj)
-
-
-            # add the (mu * y) term into objective
-            # if self.obj:
-            #     def obj(m):
-            #         return self.obj[s](m, s) + sum(m.mu[i] * m.y[i] for i in self.y_set)
-            #     m.obj = Objective(expr=obj,sense=minimize)
-            # else:
-            #     m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
-            m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
+        #     # add the (mu * y) term into objective
+        #     # if self.obj:
+        #     #     def obj(m):
+        #     #         return self.obj[s](m, s) + sum(m.mu[i] * m.y[i] for i in self.y_set)
+        #     #     m.obj = Objective(expr=obj,sense=minimize)
+        #     # else:
+        #     #     m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
+        #     m.P=Param(initialize=1.0, mutable=False)
+        #     m.obj = Objective(expr=temp_obj + sum(m.mu[i] * (m.y[i]-m.consensus_y[i]) for i in self.y_set)+m.P/2*sum((m.y[i]-m.consensus_y[i])**2 for i in self.y_set),sense=minimize)
+    
     def _build_benders(self):
         """
         Build the Benders master problem for lower bounding.
@@ -233,52 +242,52 @@ class LagrangeanAlgo(DecompAlgo):
         lbd = 0
 
         logger_lbd.info(f"Lower bounding the problem at {node.bound}...")
-
-        # update y bound
         self.model.update_y_bound_aux(node.bound)
+        # before starting, need to initialize param consensus_y based on new bound
+        for s in self.model.scenarios:
+            # need to update consensus_y based on new bound
+            for i in list(node.bound.keys()):
+                lb, ub = node.bound[i]
+                mid = (lb + ub) / 2
+                self.model.aux_models['lag'][s].consensus_y[i]=mid
 
-        # run the subgradient method
-        self._init_sm()  ## i add this line to get rid of stepsize left behind from previous iteration
+        # process_sol = {"x1":1727.2601809997955,"x2":16000,"x3":104.23841082714829,"x5":2000}
+        # for s in self.model.scenarios:
+        #     # need to update consensus_y based on new bound
+        #     for i in list(node.bound.keys()):
+        #         self.model.aux_models['lag'][s].y[i].fix(process_sol[i])
 
-        if kwargs.get('inherit_multiplier', True):
-            if node.parent is not None:
-                # warm start multipliers from parent node
-                self.sm.run(self.lag_iter, second_time=True, warm_start=node.multiplier_set[-1], **kwargs)
-                #self.sm.run(self.lag_iter, **kwargs)
-            else:
-                # cold start
-                self.sm.run(self.lag_iter, **kwargs)
-        else:
-            # cold start
-            self.sm.run(self.lag_iter, **kwargs)
+        # perform augmented lagrangean iteration
+        for _ in range(10):
+            current_lbd=0.0
+            y_scenario={}
+            for s in self.model.scenarios:
+                m= self.model.aux_models['lag'][s]
+                results = self.solver.solve(m, tee=kwargs.get('tee', False),**kwargs)
+                penalty_term=value(m.P)/2*sum((value(m.y[i])-value(m.consensus_y[i]))**2 for i in self.model.y_set)
+                lag_term=sum(value(m.mu[i]) * (value(m.y[i])-value(m.consensus_y[i])) for i in self.model.y_set)
+                current_lbd+=value(results['Problem'][0]['Lower bound'])
+                y_scenario[s]={i:value(m.y[i]) for i in self.model.y_set}
 
-        # if during the lagrangean iteration, the lower bound is infinite, return infinite
-        if self.sm.lbds[-1]== float('inf'):
-            return float('inf')
+            # compute average of y across scenarios
+            avg_y = {}
+            for i in self.model.y_set:
+                avg_y[i] = sum(y_scenario[s][i] for s in self.model.scenarios) / len(self.model.scenarios)
 
-        # add cuts to the node
- 
-        node.store_cuts(self.sm)
-
-        # add time
-        self.total_cpu_time += self.sm.total_cpu_time
-        node.add_time('lbd', self.sm.total_cpu_time)
-        node.add_time('lag', self.sm.total_cpu_time)
-
-        # clear prior cuts in Benders master problem
-        self.model.clear_cuts() # type: ignore
-
-        # add Lagrangean cuts to Benders master problem
-
-        self.model.add_cuts(node.multiplier_set, node.obj_val_set)
-
-        # solve Benders master problem
-
-        lbd = self._solve_benders(node,**kwargs)
-
-        logger_lbd.info(f"\tDone.")
-        # skipping bender
-        return lbd
+            # update consensus_y in each lag subproblem
+            # update mu in each scenario by adding (y - consensus_y)
+            for s in self.model.scenarios:
+                m = self.model.aux_models['lag'][s]
+                for i in self.model.y_set:
+                    m.consensus_y[i]=avg_y[i]
+                    # compute difference robustly
+                    diff = (value(m.y[i]) - value(m.consensus_y[i]))*value(self.model.aux_models['lag'][s].P)
+                    m.mu[i] += diff
+            print(f"Iteration {_}:")
+            self.model.aux_models['lag'][1].mu.pprint()
+            a=1
+        node.lbd = current_lbd
+        return current_lbd
 
     def _solve_benders(self, node: BranchBoundNode, **kwargs):
         """

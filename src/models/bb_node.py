@@ -152,10 +152,6 @@ class BranchBoundNode:
         bound_1 = self.bound.copy()
         bound_2 = self.bound.copy()
         yl, yu = self.bound[idx_p]
-        # mid=mean([i[idx_p] for i in self.lbd_y_optimal])
-        # if abs(mid-yl)<1e-5 or abs(mid-yu)<1e-5:
-        #     mid = (yl + yu) / 2
-        # print(f"mid: {mid}, yl: {yl}, yu: {yu}")
         mid = (yl + yu) / 2
         bound_1[idx_p] = [yl, mid]
         bound_2[idx_p] = [mid, yu]

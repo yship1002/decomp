@@ -9,6 +9,8 @@ from NSPLIB.src.main import StochasticModel
 from src.models.bb_node import BranchBoundNode, BranchBoundNodeList
 from src.utility.solvers import Solver
 from pyomo.environ import TerminationCondition, Binary, ConcreteModel, value # type: ignore
+import pyomo.environ as pyomo # type: ignore
+from pyomo.environ import Objective, Param, Expression, minimize # type: ignore
 from time import perf_counter
 from abc import ABC, abstractmethod
 import logging, logging.config
@@ -411,6 +413,43 @@ class DecompAlgo(ABC):
         self.iter = 0
 
         root = self.node_list.root
+
+        
+        for s in self.model.scenarios:
+
+            # m = self.lagrangean_subproblems[s]
+            m = self.model.aux_models['lag'][s]
+
+            # add lagrangean multipliers (mu) as parameter
+            m.mu = pyomo.Param(list(root.bound.keys()), initialize={
+                         idx: 0 for idx in list(root.bound.keys())}, mutable=True)
+
+            # don't forget to update consensus_y parameter when starting augmented lagrangean
+            m.consensus_y=Param(list(root.bound.keys()), initialize={idx: 0 for idx in list(root.bound.keys())},mutable=True)
+
+            
+            # delete the old objective to avoid warning
+            temp_obj=m.obj
+            temp_obj_expr=temp_obj.expr
+            m.del_component(m.obj)
+
+            # add the (mu * y) term into objective
+            # if self.obj:
+            #     def obj(m):
+            #         return self.obj[s](m, s) + sum(m.mu[i] * m.y[i] for i in self.y_set)
+            #     m.obj = Objective(expr=obj,sense=minimize)
+            # else:
+            #     m.obj = Objective(expr=temp_obj + sum(m.mu[i] * m.y[i] for i in self.y_set),sense=minimize)
+            m.P=Param(initialize=1.0, mutable=True)
+
+            m.obj = Objective(expr=temp_obj_expr + sum(m.mu[i] * (m.y[i]-m.consensus_y[i]) for i in list(root.bound.keys()))+m.P/2*sum((m.y[i]-m.consensus_y[i])**2 for i in list(root.bound.keys())),sense=minimize)
+
+
+
+
+
+
+
 
         # bound tightening
         if self.bt_init or self.bt_all:
