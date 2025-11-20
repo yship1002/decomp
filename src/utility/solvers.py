@@ -59,13 +59,13 @@ class GurobiSolver(_Solver):
         super().__init__()
         from pyomo.contrib.solver.solvers.gurobi_direct_minlp import GurobiDirectMINLP
         #self.solver = SolverFactory('gurobi_direct_minlp')
-        self.solver = SolverFactory('gurobi')
+        self.solver = SolverFactory('gurobi_direct_minlp')
 
         self.spec['options'] = {
             # allow Gurobi to solve nonconvex MIQP problems
             'NonConvex': 2,
             'OutputFlag': 0,
-            'LogToConsole': 0
+            "LogToConsole": 0
         }
 
     def solve(self, model: PyomoModel, **kwargs):
@@ -76,10 +76,10 @@ class GurobiSolver(_Solver):
         # overwrite the default settings from imput
         spec['tee'] = kwargs.get('tee', spec['tee'])
         spec['keepfiles'] = kwargs.get('keepfiles', spec['keepfiles'])
-        spec['symbolic_solver_labels'] = kwargs.get('symbolic_solver_labels', False)
+
 
         # tolerance setting
-        spec['options']['MIPGap'] = kwargs.get('tol', 1e-4)
+        spec['options']['MIPGap'] = kwargs.get('tol', 1e-10)
 
         # save log file
         # spec['logfile'] = './log/gurobi-' + time.strftime("%m-%d-%Y") +'.log'
@@ -99,7 +99,7 @@ class BaronSolver(_Solver):
 
         self.spec['options'] = {
             # relative optimality gap
-            'EpsR': 1e-8,
+            'EpsR': 1e-10,
             # 'EpsA': 1e-1,
             # # maximum iteration
             # 'MaxIter': 1000,
