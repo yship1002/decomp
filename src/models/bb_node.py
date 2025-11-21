@@ -35,7 +35,6 @@ class BranchBoundNode:
         self.idx = -1
         self.inner_nodes_count=[]
         self.lbd_time_cz=[]
-        self.root_node_time=[]
         self.s_need_solve=[]
         self.save_solver_results=[]
         # time defined as dict for different calculations
@@ -74,8 +73,6 @@ class BranchBoundNode:
                     except:
                         pass
 
-            # collect root node time and add node count (only support baron not gurobi)
-            self.root_node_time.append(res.solver.root_node_time)
 
             try:# when subproblem is solved
                 self.add_node_count(int(res["Problem"][0]["Iterations"])) 
