@@ -261,6 +261,7 @@ class LagrangeanAlgo(DecompAlgo):
                 m= self.model.aux_models['lag'][s]
                 try:
                     results = self.solver.solve(m, tee=kwargs.get('tee', False), **kwargs)
+                    node.add_time('lbd', results["Timing info"]["gurobi_time"])
                     y_scenario[s]={i:value(m.y[i]) for i in self.model.y_set}
                 except NoFeasibleSolutionError: # if augmented lagrangean is infeasible then return inf for lbd
                     return float('inf')

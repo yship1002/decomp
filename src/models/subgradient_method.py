@@ -212,9 +212,9 @@ class SubgradientMethod:
             else:
                 _lbds[s] = results['Problem'][0]['Lower bound']
             try:
-                self.total_cpu_time += results.solver.time
+                self.total_cpu_time += results["Timing info"]["gurobi_time"]
             except Exception:
-                pass
+                self.total_cpu_time += results.solver.time
 
         self._record_subgradient()
         self._record_lbd(_lbds)
