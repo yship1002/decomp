@@ -34,5 +34,5 @@ m.fix_binary_y(binary_y_val)
 m.update_y_bound(crude_y_bound)
 alg = LagrangeanAlgo(m,lag_iter=0, solver='gurobi')
 alg.solve(max_iter=1e5, max_time=3600*24,tol=1e-3,ubd_midpt_fix=1,ubd_local_solve=1,ubd_provided=crude_obj,inherit_multiplier=True,aug_lag=True,aug_lag_iter=2)
-with open('/Users/jyang872/Desktop/decomp/results/LG/crude_selection_aug.pkl', 'wb') as f:
+with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/crude_selection_aug.pkl', 'wb') as f:
     dill.dump(alg, f)
