@@ -23,9 +23,9 @@ binary_y_val['lambd[5]'] = 1
 binary_y_val['theta[1]'] = 1
 binary_y_val['theta[4]'] = 1
 m.fix_binary_y(binary_y_val)
+m.update_y_bound(pooling_y_bound)
 
-
-alg = LagrangeanAlgo(m,lag_iter=0, solver='gurobi')
-alg.solve(max_iter=1e5, max_time=3600*24,tol=1e-3,ubd_midpt_fix=1,ubd_local_solve=1,ubd_provided=pooling_obj,inherit_multiplier=True,aug_lag=True,aug_lag_iter=2)
+alg = LagrangeanAlgo(m,lag_iter=3, solver='gurobi')
+alg.solve(max_iter=1e5, max_time=3600*24,tol=1e-3,ubd_midpt_fix=1,ubd_local_solve=1,ubd_provided=pooling_obj,inherit_multiplier=True,aug_lag=False,aug_lag_iter=2)
 with open('/Users/jyang872/Desktop/decomp/results/LG/pooling.pkl', 'wb') as f:
     dill.dump(alg, f)
