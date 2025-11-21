@@ -1,4 +1,4 @@
-from pyomo.pyomo.common.numeric_types import value
+from pyomo.common.numeric_types import value
 from src.models.bb_node import BranchBoundNode, BranchBoundNodeList
 from src.models.decomp_model import DecompAlgo
 from .cz_model import CaoZavalaModel
