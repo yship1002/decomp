@@ -9,7 +9,7 @@ sto_m = const_model()
 m = LagrangeanModel.from_sto_m(sto_m)
 m.build()
 m.update_y_bound(process_y_bound)
-alg = LagrangeanAlgo(m,lag_iter=0, solver='gurobi')
+alg = LagrangeanAlgo(m,lag_iter=3, solver='gurobi')
 options = {
     'max_iter': 1e5,
     'max_time': 3600 * 24,
@@ -18,10 +18,10 @@ options = {
     'ubd_local_solve': 1,
     'ubd_provided': process_obj,
     'inherit_multiplier': True,
-    'aug_lag': True,
+    'aug_lag': False,
     'aug_lag_iter': 3,
     "aug_lag_p":1
 }
 alg.solve(**options)
-with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/process.pkl', 'wb') as f:
+with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/process_normal.pkl', 'wb') as f:
     dill.dump(alg, f)
