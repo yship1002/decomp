@@ -55,12 +55,12 @@ options = {
     'ubd_local_solve': 1,
     'ubd_provided': crude_obj,
     'inherit_multiplier': True,
-    'aug_lag': True,
+    'aug_lag': False,
     'aug_lag_iter': 3,
     "aug_lag_p":0.01
 }
 
-alg = LagrangeanAlgo(m,lag_iter=0, solver='gurobi')
+alg = LagrangeanAlgo(m,lag_iter=3, solver='gurobi')
 alg.solve(**options)
-with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/crude_selection.pkl', 'wb') as f:
+with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/crude_selection_normal.pkl', 'wb') as f:
     dill.dump(alg, f)
