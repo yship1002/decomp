@@ -1,4 +1,6 @@
 
+
+from pyomo.contrib.solver.common.util import NoFeasibleSolutionError
 from src.utility.solvers import Solver
 from pyomo.environ import value
 from src.utility.types import YBound, PyomoModel, ScenarioIndex, YIndex, Multiplier
@@ -206,15 +208,22 @@ class SubgradientMethod:
 
         for s in self.scenarios:
             m = self.models[s]
-            results = self.solver.solve(m, **kwargs)
-            if 'infeasible' in results.solver.termination_condition:
-                _lbds[s] = float('inf')
-            else:
-                _lbds[s] = results['Problem'][0]['Lower bound']
             try:
-                self.total_cpu_time += results["Timing info"]["gurobi_time"]
-            except Exception:
-                self.total_cpu_time += results.solver.time
+                results = self.solver.solve(m, **kwargs)
+                # this part is to handle infeasibility when using baron solver or normal
+                if 'infeasible' in results.solver.termination_condition:
+                    _lbds[s] = float('inf')
+                else:
+                    _lbds[s] = results['Problem'][0]['Lower bound']
+
+                try:
+                    self.total_cpu_time += results["Timing info"]["gurobi_time"]
+                except Exception:
+                    self.total_cpu_time += results.solver.time
+
+            except NoFeasibleSolutionError as e: # this part is to handle infeasibility when using gurobi solver(gurobi raises error instead of returning infeasible status)
+                _lbds[s] = float('inf')
+
 
         self._record_subgradient()
         self._record_lbd(_lbds)

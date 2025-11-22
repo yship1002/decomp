@@ -9,8 +9,8 @@ pooling_sol = {
 }
 
 pooling_y_bound = {
-    'A[1]': [299,300], 'A[2]': [201,202], 'A[3]': [0, 0], 'A[4]': [0, 0], 'A[5]': [245, 246],
-    'S[1]': [247, 248], 'S[2]': [0, 0], 'S[3]': [0, 0], 'S[4]': [499, 500]
+    'A[1]': [299,300], 'A[2]': [200,202], 'A[3]': [0, 0], 'A[4]': [0, 0], 'A[5]': [245, 246],
+    'S[1]': [244, 248], 'S[2]': [0, 0], 'S[3]': [0, 0], 'S[4]': [499, 500]
 }
 sto_m = const_model()
 m = LagrangeanModel.from_sto_m(sto_m)
@@ -25,7 +25,19 @@ binary_y_val['theta[4]'] = 1
 m.fix_binary_y(binary_y_val)
 m.update_y_bound(pooling_y_bound)
 
-alg = LagrangeanAlgo(m,lag_iter=3, solver='gurobi')
-alg.solve(max_iter=1e5, max_time=3600*24,tol=1e-3,ubd_midpt_fix=1,ubd_local_solve=1,ubd_provided=pooling_obj,inherit_multiplier=True,aug_lag=False,aug_lag_iter=2)
-with open('/Users/jyang872/Desktop/decomp/results/LG/pooling.pkl', 'wb') as f:
+alg = LagrangeanAlgo(m,lag_iter=0, solver='gurobi')
+options = {
+    'max_iter': 1e5,
+    'max_time': 3600 * 24,
+    'tol': 1e-3,
+    'ubd_midpt_fix': 1,
+    'ubd_local_solve': 1,
+    'ubd_provided': pooling_obj,
+    'inherit_multiplier': True,
+    'aug_lag': True,
+    'aug_lag_iter': 3,
+    "aug_lag_p":0.01
+}
+alg.solve(**options)
+with open('/storage/home/hcoda1/3/jyang872/p-jscott319-0/decomp/results/LG/pooling_aug.pkl', 'wb') as f:
     dill.dump(alg, f)
