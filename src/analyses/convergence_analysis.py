@@ -99,7 +99,7 @@ class HausdorffAnalyzer:
             float: The Hausdorff distance.
         """
 
-        tol = kwargs.get('tol', 1e-6)
+        tol = kwargs.get('tol', 1e-8)
         alg = self.alg
 
         # get the interval

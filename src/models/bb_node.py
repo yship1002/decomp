@@ -35,7 +35,6 @@ class BranchBoundNode:
         self.idx = -1
         self.inner_nodes_count=[]
         self.lbd_time_cz=[]
-        self.s_need_solve=[]
         self.save_solver_results=[]
         # time defined as dict for different calculations
         calc_types = ['lbd', 'ubd', 'bt', 'benders', 'lag']

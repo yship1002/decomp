@@ -57,8 +57,7 @@ class GurobiSolver(_Solver):
 
     def __init__(self):
         super().__init__()
-        from pyomo.contrib.solver.solvers.gurobi_direct_minlp import GurobiDirectMINLP
-        #self.solver = SolverFactory('gurobi_direct_minlp')
+        # from pyomo.contrib.solver.solvers.gurobi_direct_minlp import GurobiDirectMINLP
         self.solver = SolverFactory('gurobi_direct_minlp')
 
         self.spec['options'] = {
@@ -79,7 +78,7 @@ class GurobiSolver(_Solver):
 
 
         # tolerance setting
-        spec['options']['MIPGap'] = kwargs.get('tol', 1e-10)
+        spec['options']['MIPGap'] =  1e-10
 
         # save log file
         # spec['logfile'] = './log/gurobi-' + time.strftime("%m-%d-%Y") +'.log'
@@ -99,7 +98,7 @@ class BaronSolver(_Solver):
 
         self.spec['options'] = {
             # relative optimality gap
-            'EpsR': 1e-10,
+            'EpsR': 1e-8,
             # 'EpsA': 1e-1,
             # # maximum iteration
             # 'MaxIter': 1000,
@@ -126,7 +125,7 @@ class BaronSolver(_Solver):
         spec['options']['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])
 
         # tolerance setting
-        spec['options']['EpsR'] = kwargs.get('tol', spec['options']['EpsR'])
+        spec['options']['EpsR'] = spec['options']['EpsR']
         # spec['options']['EpsA'] = kwargs.get('tol', spec['options']['EpsA'])
 
         # save log file

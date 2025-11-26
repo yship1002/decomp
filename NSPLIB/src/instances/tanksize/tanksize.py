@@ -92,9 +92,10 @@ def const_model():
         for s in model.S: # Assign sampled values to model.ProductDemand
             model.ProductDemand[p, s] =  np.random.normal(value(model.ProductDemand_nominal[p]), value(model.ProductDemand_stdev[p]))
 
-
     model.TotalDemandPerDay = Param(model.S,mutable=True)
-    placeholder={(p,s): 1/model.NumDaysInYear*model.ProductDemand[p,s] for p in model.p for s in model.S}
+    placeholder={(p,s): value(1/model.NumDaysInYear*model.ProductDemand[p,s]
+                              ) for p in model.p for s in model.S}
+    print(placeholder)
     model.DemandPerDay = Param(model.p, model.S,initialize=placeholder)
     # for p in model.p:
     #     for s in model.S:

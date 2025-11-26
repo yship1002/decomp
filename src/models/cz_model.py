@@ -149,18 +149,22 @@ class CaoZavalaAlgo(DecompAlgo):
 
     def __init__(self, model: CaoZavalaModel, bt_init=False, bt_all=False, **kwargs):
         super().__init__(model, bt_init=bt_init, bt_all=bt_all, **kwargs)
-    def let_solver_solve(self,arg_list):
-        from pyomo.opt import SolverFactory
-        solver_name = getattr(self.solver, "name", None) or "baron"
-        opt = SolverFactory(solver_name)
-        # if you carry options on self.solver, copy them over
+    def let_solver_solve(self,prepare_args):
+        # from pyomo.opt import SolverFactory
+        # solver_name = getattr(self.solver, "name", None) or "baron"
+        # opt = SolverFactory(solver_name)
+        # # if you carry options on self.solver, copy them over
+        # try:
+        #     for k, v in getattr(self.solver, "options", {}).items():
+        #         opt.options[k] = v
+        # except Exception:
+        #     pass
         try:
-            for k, v in getattr(self.solver, "options", {}).items():
-                opt.options[k] = v
-        except Exception:
-            pass
-        results = opt.solve(self.model.aux_models['lbd'][arg_list[0]], tee=arg_list[1], tol=arg_list[2],first_loc=arg_list[3])
-        return {"solveresult":results,"y_optimal":{k:v.value for k,v in self.model.aux_models['lbd'][arg_list[0]].y.items()}}
+            results = self.solver.solve(self.model.aux_models['lbd'][prepare_args[0]],**prepare_args[1])
+        except:
+            return {"solveresult":None,"y_optimal":None}
+        return {"solveresult":results,"y_optimal":{k:v.value for k,v in self.model.aux_models['lbd'][prepare_args[0]].y.items()}}
+
     def calc_lbd(self, node: BranchBoundNode, **kwargs):
         """
         Calculate the lower bound for a given node.
@@ -168,7 +172,7 @@ class CaoZavalaAlgo(DecompAlgo):
         Returns:
             float: The lower bound.
         """
-
+   
         lbd = 0
 
         logger_lbd.info(f"Lower bounding the problem at {node.bound}...")
@@ -176,46 +180,28 @@ class CaoZavalaAlgo(DecompAlgo):
         # update bound
         self.model.update_y_bound_aux(node.bound)
 
-        s_need_to_solve = []
-        if node.parent is not None: # when it is not the root node
-            for idx,y_s in enumerate(node.parent.lbd_y_optimal):
-                for k,v in y_s.items():
-                    try:
-                        if not node.bound[k][0] < v < node.bound[k][1]:
-                            s_need_to_solve.append(self.model.scenarios[idx])
-                            break
-                    except KeyError:
-                        continue
-                   
-        else: #when it is the rot node
-            s_need_to_solve = self.model.scenarios
-        node.s_need_solve=s_need_to_solve
-
-        if len(s_need_to_solve) > 0: #check if there is any scenario that needs to be solved
-            # only feed scenario index that needs to be solved
-            prepare_args = [(s,kwargs.get('tee', False),kwargs.get('sub_tol', 1e-10),kwargs.get("lbd_local_solve",0)) for s in s_need_to_solve]
-            with Pool(processes=len(s_need_to_solve)) as pool:  # Adjust #processes based on CPU cores
-                results_list = pool.map(self.let_solver_solve, prepare_args)
+        # only feed scenario index that needs to be solved
+        results_list = []
+        for s in self.model.scenarios:
+            results_list.append(self.let_solver_solve((s,kwargs)))
         # combine results from no need to solve and need to solve before start recording solutions
         combined_results = {}
 
         # step 2:formulate a dictionary with index as scenario and results as value
+        #         we also checking infeasibility of each scenario subproblem
         for s in self.model.scenarios:
-            if s in s_need_to_solve:
-                #get result from results_list
-                combined_results[s] = results_list[s_need_to_solve.index(s)]
-            else: # step 1:formulat empty results for scenario that does not need to be solved
-                from pyomo.opt.results.results_ import SolverResults
-                results = SolverResults()
-                print(results['Problem'])
-                results.solver.termination_condition=TerminationCondition.optimal
-                results['Problem'].add()
-                results['Problem'][0]['Lower bound']=node.parent.lbd_scenario[s]
-                results.solver[0]["Wallclock time"]=0
-                results.solver.root_node_time=0
-                combined_results[s]={"solveresult":results,"y_optimal":node.parent.lbd_y_optimal[s]}
+            if results_list[self.model.scenarios.index(s)]["solveresult"] is None:
+                logger_lbd.warning("\tSolution is infeasible, value set to infinity.")
+
+                # terminate the lower bounding in advance
+                node.lbd = float("inf")
+                return float("inf")
+            else:
+                # every subproblem is feasible
+                combined_results[s] = results_list[self.model.scenarios.index(s)]
 
 
+        # debrief results of each scenario subproblem solution
         for scenario,value in combined_results.items():
             results = value["solveresult"]
             logger_lbd.info(f"\tGlobally solve for scenario {scenario}...")
@@ -234,17 +220,20 @@ class CaoZavalaAlgo(DecompAlgo):
                 node.record_sol(results, 'lbd',s=scenario)
                 logger_lbd.info(f"\tDone.")
                 self.total_cpu_time += results.solver.time
+                
                 return lbd
             # optimal
             elif check_optimal_termination(results):
                 logger_lbd.info("\tSolution is optimal.")
                 lbd += results['Problem'][0]['Lower bound']
+
                 
             # suboptimal
             else:
                 # best lower bound
                 logger_lbd.info("\tSolution is suboptimal.")
                 lbd += results['Problem'][0]['Lower bound']
+
 
             node.record_sol(results, 'lbd',y_optimal=value["y_optimal"],s=scenario)
 
@@ -255,7 +244,7 @@ class CaoZavalaAlgo(DecompAlgo):
                 self.total_cpu_time += results.solver.time
             except:
                 #self.total_cpu_time += results.solver[0]["wall time"]"Wallclock time"
-                self.total_cpu_time += results.solver[0]["Wallclock time"]
+                self.total_cpu_time += results["Timing info"]["wall_time"]
 
         return lbd
 

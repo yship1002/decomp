@@ -661,6 +661,7 @@ class SBBResult:
         self.bb_n = []
         self.active_bb_n = []
 
+
         # result
         self._sol = {}
 
@@ -676,8 +677,8 @@ class SBBResult:
         during the SBB run.
         """
 
-        ubd = self.last_ubd
-        lbd = self.last_lbd
+        ubd = self.ubds[-1]
+        lbd = self.lbds[-1]
 
         abs_gap = ubd - lbd
 
