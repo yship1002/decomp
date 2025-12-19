@@ -78,7 +78,7 @@ class GurobiSolver(_Solver):
 
 
         # tolerance setting
-        spec['options']['MIPGap'] =  1e-10
+        self.solver.options['MIPGap'] =  1e-15
 
         # save log file
         # spec['logfile'] = './log/gurobi-' + time.strftime("%m-%d-%Y") +'.log'
@@ -99,7 +99,7 @@ class BaronSolver(_Solver):
         self.spec['options'] = {
             # relative optimality gap
             'EpsR': 1e-8,
-            # 'EpsA': 1e-1,
+            'EpsA': 1e-10,
             # # maximum iteration
             # 'MaxIter': 1000,
             # # absolute constraint feasible tolerance
@@ -118,15 +118,16 @@ class BaronSolver(_Solver):
         spec = self.spec.copy()
 
         # overwrite the default settings from imput
-        spec['options']["FirstLoc"]=kwargs.get('first_loc', 0)
-        spec['tee'] = kwargs.get('tee', False)
-        spec['keepfiles'] = kwargs.get('keepfiles', False)
-        spec['symbolic_solver_labels'] = kwargs.get('symbolic_solver_labels', False)
-        spec['options']['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])
+        self.solver.options["FirstLoc"]=kwargs.get('first_loc', 0)
+        
+        self.solver.options['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])
+        self.solver.options["TDo"]=1
+        self.solver.options["LBTTDo"]=1 #linear feasibility based range reducion
+        self.solver.options["OBTTDo"]=1
+        self.solver.options["BrVarStra"]=2 # longest edge
+        self.solver.options["BrPtStra"]=2 # midpoint branch
+        self.solver.options["EpsA"]=spec['options']['EpsA']
 
-        # tolerance setting
-        spec['options']['EpsR'] = spec['options']['EpsR']
-        # spec['options']['EpsA'] = kwargs.get('tol', spec['options']['EpsA'])
 
         # save log file
         #spec['logfile'] = './log/baron/' + time.strftime("%H-%M-%S-%m-%d-%Y") +'.log'

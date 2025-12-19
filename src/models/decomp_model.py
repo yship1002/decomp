@@ -318,6 +318,7 @@ class DecompAlgo(ABC):
         log_title += "   gap"
         logger_sbb.info(log_title)
 
+
         while True:
 
             if self.node_list.is_empty():
@@ -513,7 +514,7 @@ class DecompAlgo(ABC):
             self.calc_ubd(node_2, is_lbd_inf=True, **kwargs)
         else:
             self.calc_ubd(node_2, is_lbd_inf=False, **kwargs)
-
+  
         # remove node with +inf lbd
         for node in [node_1, node_2]:
             if node.lbd == float('inf'):
