@@ -74,7 +74,7 @@ class BranchBoundNode:
 
 
             try:# when subproblem is solved
-                self.add_node_count(int(res["Problem"][0]["Iterations"])) 
+                self.add_node_count(2*int(res["Problem"][0]["Iterations"])) 
             except: # when subproblem is inherited from parent
                 self.add_node_count(None)
                 
