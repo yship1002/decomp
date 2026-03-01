@@ -133,7 +133,12 @@ class CaoZavalaModel(DecompModel):
                 models[s].y[y_idx].setlb(y_bound[y_idx][0]) # type: ignore
                 models[s].y[y_idx].setub(y_bound[y_idx][1]) # type: ignore
                 
-
+    def erase_initialized_aux_models(self):
+        """Erase initialized values in auxiliary models."""
+        for i in self.aux_models['lbd'].values():
+            for var in i.component_objects(Var, active=True):
+                for idx in var:
+                    var[idx].value = None
 
 class CaoZavalaAlgo(DecompAlgo):
     """
@@ -150,15 +155,6 @@ class CaoZavalaAlgo(DecompAlgo):
     def __init__(self, model: CaoZavalaModel, bt_init=False, bt_all=False, **kwargs):
         super().__init__(model, bt_init=bt_init, bt_all=bt_all, **kwargs)
     def let_solver_solve(self,prepare_args):
-        # from pyomo.opt import SolverFactory
-        # solver_name = getattr(self.solver, "name", None) or "baron"
-        # opt = SolverFactory(solver_name)
-        # # if you carry options on self.solver, copy them over
-        # try:
-        #     for k, v in getattr(self.solver, "options", {}).items():
-        #         opt.options[k] = v
-        # except Exception:
-        #     pass
         try:
             results = self.solver.solve(self.model.aux_models['lbd'][prepare_args[0]],**prepare_args[1])
         except:
@@ -181,25 +177,11 @@ class CaoZavalaAlgo(DecompAlgo):
         self.model.update_y_bound_aux(node.bound)
 
         # only feed scenario index that needs to be solved
-        results_list = []
-        for s in self.model.scenarios:
-            results_list.append(self.let_solver_solve((s,kwargs)))
-        # combine results from no need to solve and need to solve before start recording solutions
         combined_results = {}
-
-        # step 2:formulate a dictionary with index as scenario and results as value
-        #         we also checking infeasibility of each scenario subproblem
         for s in self.model.scenarios:
-            if results_list[self.model.scenarios.index(s)]["solveresult"] is None:
-                logger_lbd.warning("\tSolution is infeasible, value set to infinity.")
-
-                # terminate the lower bounding in advance
-                node.lbd = float("inf")
-                return float("inf")
-            else:
-                # every subproblem is feasible
-                combined_results[s] = results_list[self.model.scenarios.index(s)]
-
+            self.model.erase_initialized_aux_models()
+            results = self.solver.solve(self.model.aux_models['lbd'][s],**kwargs)
+            combined_results[s] = {"solveresult":results,"y_optimal":{k:v.value for k,v in self.model.aux_models['lbd'][s].y.items()}}
 
         # debrief results of each scenario subproblem solution
         for scenario,value in combined_results.items():
@@ -214,14 +196,14 @@ class CaoZavalaAlgo(DecompAlgo):
 
             if results.solver.termination_condition == TerminationCondition.infeasible or results.solver.termination_condition == TerminationCondition.infeasibleOrUnbounded:
                 logger_lbd.warning("\tSolution is infeasible, value set to infinity.")
-                lbd = float("inf")
+                lbd += float("inf")
 
                 # terminate the lower bounding in advance
-                node.record_sol(results, 'lbd',s=scenario)
+                #node.record_sol(results, 'lbd',s=scenario)
                 logger_lbd.info(f"\tDone.")
-                self.total_cpu_time += results.solver.time
+                #self.total_cpu_time += results.solver.time
                 
-                return lbd
+                #return lbd
             # optimal
             elif check_optimal_termination(results):
                 logger_lbd.info("\tSolution is optimal.")

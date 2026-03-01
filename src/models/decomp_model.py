@@ -17,6 +17,8 @@ import logging, logging.config
 import matplotlib.pyplot as plt
 from pathlib import Path
 from multiprocessing import Pool
+from src.models.bb_heuristic import bb_heuristic
+import numpy as np
 logging.config.fileConfig(str(Path(__file__).parent.parent)+'/config.ini', disable_existing_loggers=False)
 logger_ubd = logging.getLogger('solve.upperBound')
 logger_sbb = logging.getLogger('solve.SBBlog')
@@ -278,7 +280,7 @@ class DecompAlgo(ABC):
 
         # y_bound, stored for branching
         self.y_bound = self.model.y_bound.copy()
-
+        self.bb_heuristic=bb_heuristic(self.model,self.solver)
         # instance for result data
         self.res = SBBResult()
 
@@ -318,9 +320,10 @@ class DecompAlgo(ABC):
         log_title += "   gap"
         logger_sbb.info(log_title)
 
-
-        while True:
-
+        counter=0
+        gap = self.res.get_gap()
+        #tol_list=np.logspace(-1,-4, num=100)
+        while gap>tol:
             if self.node_list.is_empty():
                 self.res.status = 'infeasible'
                 break
@@ -337,12 +340,17 @@ class DecompAlgo(ABC):
             node = self._select_node()
 
             # step 3
-            node_1, node_2 = self._branch(node)
+            node_1, node_2,branch_idx = self._branch(node)
 
             # step 4
+            # kwargs["tol"]=tol_list[min(counter,99)]
             node_1_lbd,node_2_lbd = self._bound(node_1, node_2, **kwargs) # type: ignore
 
-
+            # update weights
+            self.bb_heuristic.update_weight(node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_1) # type: ignore
+            # very weird pass by address issue need to debug later on this but this one currently works
+            #self.bb_heuristic.update_weight( node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_2) # type: ignore
+            
             # optimality gap
             ubd = self.res.last_ubd
             lbd = self.res.last_lbd
@@ -429,6 +437,7 @@ class DecompAlgo(ABC):
         self.calc_ubd(root, **kwargs)
 
         self.calc_lbd(root,**kwargs)
+        root=self.bb_heuristic.strong_branching(root)
         self.res.add_ubd(min(root.ubd, given_ubd))
         self.res.add_lbd(root.lbd)
         self.res.get_gap()
@@ -477,15 +486,18 @@ class DecompAlgo(ABC):
                 width[y_idx] = (bound[y_idx][1] - bound[y_idx][0]) / (self.y_bound[y_idx][1] - self.y_bound[y_idx][0])
 
         # find the dimension with the largest width
-        max_idx = max(width, key=width.get) # type: ignore
+        #branching_idx = max(width, key=width.get) # type: ignore
+
+        branching_idx = self.bb_heuristic.get_branching_idx(node)
+    
         # partition on the calculated dimension
-        node.partition(max_idx)
+        node.partition(branching_idx)
 
         # add child nodes into the list
         self.node_list.add_node(node.left) # type: ignore
         self.node_list.add_node(node.right) # type: ignore
 
-        return node.left, node.right
+        return node.left, node.right,branching_idx
 
     def _bound(self, node_1: BranchBoundNode, node_2: BranchBoundNode, **kwargs):
         """

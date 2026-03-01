@@ -7,6 +7,7 @@ from src.models.subgradient_method import SubgradientMethod
 from src.utility.types import YBound, YIndex
 from pyomo.opt.results.results_ import SolverResults
 from statistics import mean
+
 class BranchBoundNode:
     """Class for single branch-and-bound nodes.
 
@@ -36,6 +37,7 @@ class BranchBoundNode:
         self.inner_nodes_count=[]
         self.lbd_time_cz=[]
         self.save_solver_results=[]
+        self.weights = {y_idx:{"left":[], "right":[]} for y_idx in bound}
         # time defined as dict for different calculations
         calc_types = ['lbd', 'ubd', 'bt', 'benders', 'lag']
         self._time = {t: 0. for t in calc_types}
@@ -73,10 +75,8 @@ class BranchBoundNode:
                         pass
 
 
-            try:# when subproblem is solved
-                self.add_node_count(2*int(res["Problem"][0]["Iterations"])) 
-            except: # when subproblem is inherited from parent
-                self.add_node_count(None)
+
+            self.add_node_count(int(res["Problem"][0]["Iterations"])) 
                 
             if 'infeasible' in res.solver.termination_condition:
                 self.lbd = float('inf')
@@ -157,8 +157,10 @@ class BranchBoundNode:
         bound_2[idx_p] = [mid, yu]
 
         self.left = BranchBoundNode(bound_1)
+        self.left.weights = self.weights.copy()
         self.left.parent=self
         self.right = BranchBoundNode(bound_2)
+        self.right.weights = self.weights.copy()
         self.right.parent=self
         # pass the cuts
         self.left.multiplier_set = self.multiplier_set.copy()

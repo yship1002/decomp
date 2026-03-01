@@ -98,7 +98,7 @@ class BaronSolver(_Solver):
 
         self.spec['options'] = {
             # relative optimality gap
-            'EpsR': 1e-8,
+            'EpsR': 1e-14,
             'EpsA': 1e-10,
             # # maximum iteration
             # 'MaxIter': 1000,
@@ -121,19 +121,20 @@ class BaronSolver(_Solver):
         self.solver.options["FirstLoc"]=kwargs.get('first_loc', 0)
         
         self.solver.options['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])
-        self.solver.options["TDo"]=1
-        self.solver.options["LBTTDo"]=1 #linear feasibility based range reducion
-        self.solver.options["OBTTDo"]=1
-        self.solver.options["BrVarStra"]=2 # longest edge
-        self.solver.options["BrPtStra"]=2 # midpoint branch
-        self.solver.options["EpsA"]=spec['options']['EpsA']
+        #self.solver.options["TDo"]=0 # Nonlinear-feasibility-based range reduction option (poor man’s NLPs
+        #self.solver.options["MDo"]=0 # marginal based range reduction
+        #self.solver.options["LBTTDo"]=0 #linear feasibility based range reducion(poor man's LP)
+        #self.solver.options["OBTTDo"]=0 #optimality based range reduction default: 1
+        #self.solver.options["PDo"]=0 # probing problems allowed ro redeuce variable bounds default：-2， 
+        # self.solver.options["BrVarStra"]=0 # default branching variable strategy by baron
+        #self.solver.options["BrPtStra"]=2 # midpoint branch
 
-
+        self.solver.options["EpsA"]=1E-5
         # save log file
         #spec['logfile'] = './log/baron/' + time.strftime("%H-%M-%S-%m-%d-%Y") +'.log'
 
         # solve the problem
-        res = self.solver.solve(model, **spec)
+        res = self.solver.solve(model,tee=kwargs.get('tee', False))
 
         return res
 class ScipSolver(_Solver):
