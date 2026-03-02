@@ -12,6 +12,7 @@ def main():
 
     from pyomo.opt import SolverFactory
     solver=SolverFactory('baron')
+    solver.options['maxTime'] = -1
     solver.solve(m.origin_model,tee=True)
     # alg = CaoZavalaAlgo(m, solver='baron')
     # alg.solve(max_iter=1e8, max_time=3600*24, tol=0.001,ubd_midpt_fix=0,ubd_local_solve=0,ubd_provided=-1126.4218270121305) #JY:relative tolerance
