@@ -34,6 +34,7 @@ def plotting(m,steps,y_dimension,y_sol,y_bound,y_obj):
         ncols=len(m.scenarios) + 1, 
         figsize=(5 * (len(m.scenarios) + 1), 5 * len(y_dimension))
     )
+    plt.rcParams['text.usetex'] = True
     for row_idx, (y_key, y_data) in enumerate(y_dimension.items()):
         # Plotting scenario columns
         # ensure the given y_val_fix[idx] is in the discretization
@@ -51,14 +52,17 @@ def plotting(m,steps,y_dimension,y_sol,y_bound,y_obj):
             )
             # put red dot at global solution
             findidx=np.where(interval_dis==y_sol[y_key])[0][0]
-            ax.scatter(y_sol[y_key], y_data[s][findidx], marker='o', color='red', s=100, label='Global Solution')
+            ax.scatter(y_sol[y_key], y_data[s][findidx], marker='o', color='red', s=100, label=rf"Optimal")
             
             ax.set_xlim(y_bound[y_key])
-            ax.set_title(f"{y_key} - Scenario {s}", fontsize=20)
-            ax.set_xlabel(y_key, fontsize=20)
-            ax.set_ylabel("Value", fontsize=20)
-            ax.tick_params(axis='both', labelsize=20)
-            ax.legend()
+            ax.set_title(rf"Scenario {s}", fontsize=18)
+            ax.set_xlabel(rf"{y_key}", fontsize=18)
+            ax.set_ylabel(rf"Obj", fontsize=18)
+            ax.tick_params(axis='both', labelsize=18)
+            ax.ticklabel_format(style='plain', axis='both')  # no scientific notation
+            ax.xaxis.get_major_formatter().set_useOffset(False)
+            ax.yaxis.get_major_formatter().set_useOffset(False)
+            ax.legend(fontsize=18)
 
         # Plot total in the last column
         ax = axs[row_idx, -1] if len(y_dimension) > 1 else axs[-1]
@@ -69,13 +73,16 @@ def plotting(m,steps,y_dimension,y_sol,y_bound,y_obj):
         )
         # put red dot at global solution
         findidx=np.where(interval_dis==y_sol[y_key])[0][0]
-        ax.scatter(y_sol[y_key], y_data["total"][findidx], marker='o', color='red', s=100, label='Global Solution')
+        ax.scatter(y_sol[y_key], y_data["total"][findidx], marker='o', color='red', s=100, label=rf"Optimal")
 
         ax.set_xlim(y_bound[y_key])
-        ax.set_title(f"{y_key} - Total", fontsize=20)
-        ax.set_xlabel(y_key, fontsize=20)
-        ax.set_ylabel("Value", fontsize=20)
-        ax.tick_params(axis='both', labelsize=20)
-        ax.legend()
+        ax.set_title(rf"Sum", fontsize=18)
+        ax.set_xlabel(rf"{y_key}", fontsize=18)
+        ax.set_ylabel(rf"Obj", fontsize=18)
+        ax.tick_params(axis='both', labelsize=18)
+        ax.ticklabel_format(style='plain', axis='both')  # no scientific notation
+        ax.xaxis.get_major_formatter().set_useOffset(False)
+        ax.yaxis.get_major_formatter().set_useOffset(False)
+        ax.legend(fontsize=18)
     plt.tight_layout()
     return fig

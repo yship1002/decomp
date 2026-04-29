@@ -156,6 +156,9 @@ class BranchBoundNode:
         bound_1[idx_p] = [yl, mid]
         bound_2[idx_p] = [mid, yu]
 
+        # bound_1[idx_p] = [yl-1e-4, mid+1e-4]
+        # bound_2[idx_p] = [mid-1e-4, yu+1e-4]
+
         self.left = BranchBoundNode(bound_1)
         self.left.weights = self.weights.copy()
         self.left.parent=self

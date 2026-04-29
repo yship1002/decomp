@@ -155,6 +155,8 @@ def const_model():
         prob[s] = 1 / len(pm.S)
     pm.prob = Param(pm.S, initialize=prob)
 
+
+
     Crude_yield_data = {}
     for s in pm.S:
         for c in pm.C:

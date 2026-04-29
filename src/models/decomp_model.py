@@ -831,7 +831,7 @@ class SBBResult:
         func(gap_rec, self.bb_n, 'b-', label='nodes', linewidth=lw)
         func(gap_rec, fathomed_node_n, 'k-', label='fathomed nodes', linewidth=lw)
         plt.xlabel('1 / gap')
-        plt.ylabel('node number')
+        plt.ylabel('# nodes')
         plt.grid(True, which='major', axis='both')
         plt.legend()
 
