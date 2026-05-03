@@ -96,17 +96,7 @@ class BaronSolver(_Solver):
 
         self.solver = SolverFactory('baron')
 
-        self.spec['options'] = {
-            # relative optimality gap
-            'EpsR': 1e-14,
-            'EpsA': 1e-10,
-            # # maximum iteration
-            # 'MaxIter': 1000,
-            # # absolute constraint feasible tolerance
-            # 'AbsConFeasTol': 1e-6
-            # maximum solving time
-            'MaxTime': 10000
-        }
+
 
     def solve(self, model: PyomoModel, **kwargs):
 
@@ -120,8 +110,8 @@ class BaronSolver(_Solver):
         # overwrite the default settings from imput
         self.solver.options["FirstLoc"]=kwargs.get('first_loc', 0)
         
-        self.solver.options['MaxTime'] = kwargs.get('max_time', spec['options']['MaxTime'])
-        #self.solver.options["TDo"]=0 # Nonlinear-feasibility-based range reduction option (poor man’s NLPs
+        self.solver.options['MaxTime'] = kwargs.get('max_time', 10000)
+        self.solver.options["TDo"]=1 # Nonlinear-feasibility-based range reduction option (poor man’s NLPs
         #self.solver.options["MDo"]=0 # marginal based range reduction
         #self.solver.options["LBTTDo"]=0 #linear feasibility based range reducion(poor man's LP)
         #self.solver.options["OBTTDo"]=0 #optimality based range reduction default: 1
@@ -129,7 +119,7 @@ class BaronSolver(_Solver):
         # self.solver.options["BrVarStra"]=0 # default branching variable strategy by baron
         #self.solver.options["BrPtStra"]=2 # midpoint branch
 
-        self.solver.options["EpsA"]=1E-5
+        self.solver.options["EpsA"]=1E-6
         # save log file
         #spec['logfile'] = './log/baron/' + time.strftime("%H-%M-%S-%m-%d-%Y") +'.log'
 

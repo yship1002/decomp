@@ -179,7 +179,7 @@ class CaoZavalaAlgo(DecompAlgo):
         # only feed scenario index that needs to be solved
         combined_results = {}
         for s in self.model.scenarios:
-            self.model.erase_initialized_aux_models()
+
             results = self.solver.solve(self.model.aux_models['lbd'][s],**kwargs)
             combined_results[s] = {"solveresult":results,"y_optimal":{k:v.value for k,v in self.model.aux_models['lbd'][s].y.items()}}
 

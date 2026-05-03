@@ -59,26 +59,26 @@ def const_model():
     # =========================================================================
     
     # Stream 3: ED1 dilute outlet → ED2 inlet
-    pm.flowStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
-    pm.concStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
+    pm.flowStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=10)
+    pm.concStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
     # pm.flowStream3_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
     # pm.concStream3_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     
     # Stream 5: ED2 dilute outlet → ED3 inlet
-    pm.flowStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
-    pm.concStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
+    pm.flowStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=10)
+    pm.concStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
     # pm.flowStream5_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
     # pm.concStream5_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     
     # Stream 6: ED2 concentrate → ED1 recycle
-    pm.flowStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    pm.concStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
+    pm.flowStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=1)
+    pm.concStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
     # pm.flowStream6_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     # pm.concStream6_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     
     # Stream 8: ED3 dilute → ED2 recycle
-    pm.flowStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    pm.concStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
+    pm.flowStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=1)
+    pm.concStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
     # pm.flowStream8_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     # pm.concStream8_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
     
@@ -90,21 +90,21 @@ def const_model():
     pm.units = pyo.Set(initialize=[1, 2, 3])
     
     # Unit-local decision variables
-    pm.I                    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-1, 1e3), initialize=30)
-    pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.01, 2:0, 3:0})
-    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 100), initialize={1:3, 2:1, 3:0.5})
-    pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize=1)
+    pm.I                    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-1, 1e3), initialize={1:20, 2:0.1, 3:35})
+    pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.85, 2:0.37, 3:0})
+    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 100), initialize={1:0.96, 2:0.01, 3:1.3})
+    pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.2, 2:0.11, 3:0.1})
     pm.thicknessConcentrate = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
     pm.thicknessDilute      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
     
     # Unit-local outlet variables
-    pm.flowOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=0.01)
-    pm.flowOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize={1:0.99, 2:0.5, 3:0.5})
+    pm.flowOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=0.01)
+    pm.flowOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 10), initialize={1:0.99, 2:0.5, 3:0.5})
     pm.concOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1, 100), initialize={1:20, 2:5, 3:1})
-    pm.concOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-4, 1), initialize=0.3)
+    pm.concOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 1), initialize=0.3)
     
     # Unit-local voltage and resistance
-    pm.voltCellPair    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 5), initialize={1:0.5, 2:1, 3:1.5})
+    pm.voltCellPair    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 5), initialize={1:0.38, 2:0.33, 3:0.63})
     pm.resConcentrate  = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
     pm.resDilute       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
     pm.voltNonOhmicCEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
@@ -112,10 +112,10 @@ def const_model():
 
     
     # Unit-local cost variables
-    pm.capex     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e2), initialize=1e4)
-    pm.opex1     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e2), initialize=1e4)
-    pm.opex2     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e2), initialize=1e4)
-    pm.costTotal = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e2), initialize=1e4)
+    pm.capex     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.opex1     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.opex2     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.costTotal = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
     
     # =========================================================================
     # PARAMETERS: Shared physical/operational parameters
@@ -155,7 +155,7 @@ def const_model():
     pm.conducConcentrate = pyo.Param(initialize=149.6e-4)
     pm.conducDilute      = pyo.Param(initialize=149.6e-4)
     pm.costElec          = pyo.Param(initialize=0.08147)
-    pm.scaleFacFlow       = pyo.Param(pm.units, initialize={1: 192555 / (1000 * 24 * 60 * 60), 2: 192555 / (1000 * 24 * 60 * 60), 3: 192555 / (1000 * 24 * 60 * 60)}, mutable=True)
+    pm.scaleFacFlow       = pyo.Param(pm.units, initialize={1: 192555 / (1000 * 24 * 60 * 60)/pm.numCells, 2: 192555 / (1000 * 24 * 60 * 60)/pm.numCells, 3: 192555 / (1000 * 24 * 60 * 60)/pm.numCells}, mutable=True)
     pm.scaleFacConc       = pyo.Param(pm.units, initialize={1: 1366 / pm.molweightN, 2: 1366 / pm.molweightN, 3: 1366 / pm.molweightN}, mutable=True)
     
     # Flowsheet inlet conditions
@@ -511,7 +511,7 @@ def const_model():
     def linkStream3FlowRule(m, unitIdx):
         if unitIdx != 1:
             return pyo.Constraint.Skip
-        return m.flowStream3 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx]
+        return m.flowStream3 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
     pm.conLinkStream3Flow = pyo.Constraint(pm.units, rule=linkStream3FlowRule)
 
     def linkStream3ConcRule(m, unitIdx):
@@ -524,7 +524,7 @@ def const_model():
     def linkStream5FlowRule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.flowStream5 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx]
+        return m.flowStream5 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
     pm.conLinkStream5Flow = pyo.Constraint(pm.units, rule=linkStream5FlowRule)
 
     def linkStream5ConcRule(m, unitIdx):
@@ -537,7 +537,7 @@ def const_model():
     def linkStream6FlowRule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.flowStream6 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx]
+        return m.flowStream6 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
     pm.conLinkStream6Flow = pyo.Constraint(pm.units, rule=linkStream6FlowRule)
 
     def linkStream6ConcRule(m, unitIdx):
@@ -550,7 +550,7 @@ def const_model():
     def linkStream8FlowRule(m, unitIdx):
         if unitIdx != 3:
             return pyo.Constraint.Skip
-        return m.flowStream8 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx]
+        return m.flowStream8 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
     pm.conLinkStream8Flow = pyo.Constraint(pm.units, rule=linkStream8FlowRule)
 
     def linkStream8ConcRule(m, unitIdx):
@@ -588,8 +588,8 @@ def const_model():
 
 
     def _obj(m, unitIdx):
-        tonsNTotal = (m.concOutConcentrateND[3] * m.scaleFacConc[3] * m.flowOutConcentrateND[3] * m.scaleFacFlow[3] * m.numCells * m.molweightN * (10**-6) * 7 * 365 * 86400)
-        return (m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx]) / tonsNTotal
+        # tonsNTotal = (m.concOutConcentrateND[3] * m.scaleFacConc[3] * m.flowOutConcentrateND[3] * m.scaleFacFlow[3] * m.numCells * m.molweightN * (10**-6) * 7 * 365 * 86400)
+        return 0.001*(m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx])# / tonsNTotal
 
     
     objs = {s: _obj for s in scenarios}
