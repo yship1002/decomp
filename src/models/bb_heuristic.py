@@ -36,13 +36,11 @@ class bb_heuristic:
         """
         logger_sbb.info("Strong branching...")
 
-
-
-
         old_lbd=node.lbd
         iterator=0
 
         while iterator<len(node.bound):
+            print("Variable index:", iterator)
             y_idx=list(node.bound.keys())[iterator]
             left_improve=0
             right_improve=0
@@ -53,14 +51,25 @@ class bb_heuristic:
             range=(node.bound[y_idx][1]-node.bound[y_idx][0])/2
             # left_improve
             self.model.update_y_bound(left_y_bound)
+    
             for aux_model in self.model.aux_models["lbd"].values():
                 results=self.solver.solve(aux_model) # type: ignore
-                left_improve += results["problem"][0]['Lower bound']
+                if results["Problem"][0]["Upper bound"]==1e+51:
+                    left_improve+=float("inf")
+                else:
+                    left_improve += results["problem"][0]['Lower bound']
+ 
             self.model.update_y_bound(right_y_bound)
             # right_improve
+
             for aux_model in self.model.aux_models["lbd"].values():
                 results=self.solver.solve(aux_model) # type: ignore
-                right_improve += results["problem"][0]['Lower bound']
+                if results["Problem"][0]["Upper bound"]==1e+51:
+                    right_improve+=float("inf")
+                else:
+                    right_improve += results["problem"][0]['Lower bound']
+  
+            
             left_improve = left_improve-old_lbd
             right_improve = right_improve - old_lbd
             if left_improve<0:
@@ -85,11 +94,14 @@ class bb_heuristic:
                     right_improve = (given_ubd-old_lbd)/range
                     node.bound[y_idx] = left_y_bound[y_idx]
 
-            
+            if left_improve==float("inf") or right_improve==float("inf"):
+                raise Exception("Both left and right improve are inf, something is wrong with the model or solver")
+
             self.update_weight(left_improve,right_improve,y_idx,node)
             iterator+=1
         logger_sbb.info("Strong branching ended...")
-
+        for y_idx in node.bound:
+            print("After Node bound on", y_idx, ":", node.bound[y_idx][0], node.bound[y_idx][1])
         return node
     def update_weight(self,left_improve,right_improve,y_idx,node):
 
@@ -101,6 +113,9 @@ class bb_heuristic:
     def get_branching_idx(self,node):
         score=[]
         for y_idx in node.bound:
+            if node.bound[y_idx][1] - node.bound[y_idx][0] < 1e-5:
+                score.append(0)
+                continue
             left_avg=0
             right_avg=0
             for i in node.weights[y_idx]["left"]:

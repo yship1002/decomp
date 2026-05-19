@@ -9,15 +9,15 @@
 #   variables are the unit-local decision and outlet variables for each ED unit.
 #
 # Flowsheet Topology:
-#   Feed (1) → ED1 → Stream 2 (concentrate discard)
-#                    ↓ Stream 3 (dilute) → ED2 → Stream 5 (dilute) → ED3 → Stream 7 (concentrate product)
-#                                           ↑ Stream 6 (concentrate from ED2 to recycle into ED1)
+#   Feed (1) → ED1 → Stream 2 (dilute outlet / treated discharge)
+#                    ↓ Stream 3 (concentrate) → ED2 → Stream 5 (concentrate) → ED3 → Stream 7 (concentrate product)
+#                                           ↑ Stream 6 (dilute from ED2 to recycle into ED1)
 #                                           ↓ Stream 8 (dilute from ED3 back to ED2)
 #
 # Broken Streams (First-Stage Interface Variables):
-#   Stream 3: ED1 dilute outlet → ED2 inlet (flow_S3 and conc_S3)
-#   Stream 5: ED2 dilute outlet → ED3 inlet (flow_S5 and conc_S5)
-#   Stream 6: ED2 concentrate → ED1 recycle (flow_S6 and conc_S6)
+#   Stream 3: ED1 concentrate outlet → ED2 inlet (flow_S3 and conc_S3)
+#   Stream 5: ED2 concentrate outlet → ED3 inlet (flow_S5 and conc_S5)
+#   Stream 6: ED2 dilute outlet → ED1 recycle (flow_S6 and conc_S6)
 #   Stream 8: ED3 dilute → ED2 recycle (flow_S8 and conc_S8)
 #
 # Second-Stage Variables (Unit-Local):
@@ -46,77 +46,16 @@ import numpy as np
 # Build the Flowsheet Model
 ###############################################################################
 
-def const_model():
+def const_model(returnPyomoModel: bool = False):
     """
     Build the three-unit ED flowsheet with first-stage broken-stream
     interface variables and second-stage unit-local variables/equations.
     """
     
     pm = pyo.ConcreteModel()
-    
-    # =========================================================================
-    # FIRST-STAGE VARIABLES: Broken Stream Interface Copies
-    # =========================================================================
-    
-    # Stream 3: ED1 dilute outlet → ED2 inlet
-    pm.flowStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=10)
-    pm.concStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
-    # pm.flowStream3_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
-    # pm.concStream3_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    
-    # Stream 5: ED2 dilute outlet → ED3 inlet
-    pm.flowStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=10)
-    pm.concStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
-    # pm.flowStream5_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=10)
-    # pm.concStream5_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    
-    # Stream 6: ED2 concentrate → ED1 recycle
-    pm.flowStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=1)
-    pm.concStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
-    # pm.flowStream6_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    # pm.concStream6_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    
-    # Stream 8: ED3 dilute → ED2 recycle
-    pm.flowStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 10**6), initialize=1)
-    pm.concStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=1)
-    # pm.flowStream8_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    # pm.concStream8_in  = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-4, 100), initialize=1)
-    
-    # =========================================================================
-    # SECOND-STAGE VARIABLES: Unit-Local ED Model Variables for Each Unit
-    # =========================================================================
-    
     # For each unit (1, 2, 3), define a subdictionary of variables
     pm.units = pyo.Set(initialize=[1, 2, 3])
-    
-    # Unit-local decision variables
-    pm.I                    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-1, 1e3), initialize={1:20, 2:0.1, 3:35})
-    pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.85, 2:0.37, 3:0})
-    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 100), initialize={1:0.96, 2:0.01, 3:1.3})
-    pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.2, 2:0.11, 3:0.1})
-    pm.thicknessConcentrate = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
-    pm.thicknessDilute      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
-    
-    # Unit-local outlet variables
-    pm.flowOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=0.01)
-    pm.flowOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 10), initialize={1:0.99, 2:0.5, 3:0.5})
-    pm.concOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1, 100), initialize={1:20, 2:5, 3:1})
-    pm.concOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 1), initialize=0.3)
-    
-    # Unit-local voltage and resistance
-    pm.voltCellPair    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 5), initialize={1:0.38, 2:0.33, 3:0.63})
-    pm.resConcentrate  = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
-    pm.resDilute       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
-    pm.voltNonOhmicCEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
-    pm.voltNonOhmicAEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
 
-    
-    # Unit-local cost variables
-    pm.capex     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
-    pm.opex1     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
-    pm.opex2     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
-    pm.costTotal = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
-    
     # =========================================================================
     # PARAMETERS: Shared physical/operational parameters
     # =========================================================================
@@ -143,8 +82,10 @@ def const_model():
     pm.waterPermCEM      = pyo.Param(initialize=7.79e-11 / 3600)
     pm.waterPermAEM      = pyo.Param(initialize=6.29e-11 / 3600)
     pm.vantHoffNumber    = pyo.Param(initialize=2)
-    pm.molweightH2O      = pyo.Param(initialize=0.018)
+    pm.molweightH2O      = pyo.Param(initialize=0.018)   # kg/mol
+    pm.molweightH2OgMol  = pyo.Param(initialize=18.01528)  # g/mol
     pm.densityH2O        = pyo.Param(initialize=1000)
+    pm.densityH2OGM3     = pyo.Param(initialize = 1000 * 1000)   # g/m3
     pm.densityManure     = pyo.Param(initialize=1000)
     pm.viscosityManure   = pyo.Param(initialize=1e-3)
     pm.waterTransNumber  = pyo.Param(initialize=6 + 8 + 2, mutable=True)
@@ -155,66 +96,160 @@ def const_model():
     pm.conducConcentrate = pyo.Param(initialize=149.6e-4)
     pm.conducDilute      = pyo.Param(initialize=149.6e-4)
     pm.costElec          = pyo.Param(initialize=0.08147)
-    pm.scaleFacFlow       = pyo.Param(pm.units, initialize={1: 192555 / (1000 * 24 * 60 * 60)/pm.numCells, 2: 192555 / (1000 * 24 * 60 * 60)/pm.numCells, 3: 192555 / (1000 * 24 * 60 * 60)/pm.numCells}, mutable=True)
-    pm.scaleFacConc       = pyo.Param(pm.units, initialize={1: 1366 / pm.molweightN, 2: 1366 / pm.molweightN, 3: 1366 / pm.molweightN}, mutable=True)
+    # Original (old) scaling defaults commented out
+    # pm.scaleFacFlow       = pyo.Param(pm.units,mutable=True)
+    # for i in pm.units:
+    #     pm.scaleFacFlow[i] = 192555 / (1000 * 24 * 60 * 60)
+    # pm.scaleFacConc       = pyo.Param(pm.units,initialize={1: 1366 / pm.molweightN, 2: 1366 / pm.molweightN, 3: 1366 / pm.molweightN}, mutable=True)
+
+    # Tuned uniform scaling
+    # - scaleFacFlow: ~5.388e-06 m3/s per cell
+    # - scaleFacConc: ~3.967e+02 mol/m3
+    pm.scaleFacFlow = pyo.Param(pm.units, mutable=True, initialize={1: 5.388e-06, 2: 5.388e-06, 3: 5.388e-06})
+    pm.scaleFacConc = pyo.Param(pm.units, mutable=True, initialize={1: 3.967e+02, 2: 3.967e+02, 3: 3.967e+02})
     
-    # Flowsheet inlet conditions
-    pm.flowInFeed = pyo.Param(initialize=192555 / (1000 * 24 * 60 * 60), mutable=True)
-    pm.concInFeed = pyo.Param(initialize=0.1366 * 10**4 / pm.molweightN, mutable=True)
+    # =========================================================================
+    # FIRST-STAGE VARIABLES
+    # =========================================================================
     
-    # # Scaling factors (computed per unit)
-    # pm.scaleFacFlow = pyo.Param(pm.units, mutable=True)
-    # pm.scaleFacConc = pyo.Param(pm.units, mutable=True)
+    # stream Feed: Flowsheet inlet feed → ED1 inlet (defined as parameter since it's fixed)
+    pm.flowFeed = pyo.Param(initialize=192555 / (1000 * 24 * 60 * 60), mutable=True)   # units: m3/s
+    pm.concFeed = pyo.Param(initialize= 1366, mutable=True)                            # units: mg-N/L
+    
+    pm.molNFeed = pyo.Expression(expr = pm.flowFeed * pm.concFeed/pm.molweightN)                # units: mol/s
+    pm.molWFeed = pyo.Expression(expr = pm.flowFeed * (pm.densityH2OGM3 - pm.concFeed)/pm.molweightH2OgMol)            # units: mol/s
+    
+    # all flowsheet level molar flows (mol x Stream x) have units of mol/s
+    # stream 1: Mixer1 (feed + recycle from ED1) → ED1 inlet (defined as variables in first stage)
+    pm.molNStream1 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 11), initialize=10)
+    pm.molWStream1 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+
+    # stream 2: ED1 concentrate outlet → concentrate discard (defined as variables in first stage)
+    pm.molNStream2 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 12), initialize=10)
+    pm.molWStream2 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+
+    # Stream 3: ED1 dilute outlet → ED2 inlet
+    pm.molNStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 13), initialize=10)
+    pm.molWStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+
+    # stream 4: Mixer2 (concentrate from ED1 + recycle from ED2) → ED2 inlet (defined as variables in first stage)
+    pm.molNStream4 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 14), initialize=10)
+    pm.molWStream4 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+    
+    # Stream 5: ED2 dilute outlet → ED3 inlet
+    pm.molNStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 15), initialize=10)
+    pm.molWStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+    
+    # Stream 6: ED2 concentrate → ED1 recycle
+    pm.molNStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 16), initialize=1)
+    pm.molWStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+
+    # stream 7: ED3 concentrate outlet → flowsheet product (defined as variables in first stage)
+    pm.molNStream7 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 17), initialize=10)
+    pm.molWStream7 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+    
+    # Stream 8: ED3 dilute → ED2 recycle
+    pm.molNStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 18), initialize=1)
+    pm.molWStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
+
+    # =========================================================================
+    # FIRST-STAGE CONSTRAINTS
+    # =========================================================================
+
+    # Mixer 1: Feed + ED1 Dilute Recycle → ED1 Inlet
+    pm.conMolNMixer1 = pyo.Constraint(expr = pm.molNStream1 - pm.molNFeed - pm.molNStream6 == 0)
+    pm.conMolWMixer1 = pyo.Constraint(expr = pm.molWStream1 - pm.molWFeed - pm.molWStream6 == 0)
+
+    # Mixer 2: ED1 Concentrate + ED2 Dilute Recycle → ED2 Inlet
+    pm.conMolNMixer2 = pyo.Constraint(expr = pm.molNStream4 - pm.molNStream3 - pm.molNStream8 == 0)
+    pm.conMolWMixer2 = pyo.Constraint(expr = pm.molWStream4 - pm.molWStream3 - pm.molWStream8 == 0)
+
+    # Purity targets on ED1 dilute outlet (Stream 2) and ED3 concentrate outlet (Stream 7).
+    # mg-N/L definition (assuming aqueous solution with 1 L ~ 1000 g water):
+    #   mgN/L = (molN * MW_N [g/mol]) / (molW * MW_H2O [g/mol]) * 1e6
+    # Rearranged to a linear constraint in (molN, molW):
+    #   molN <= Cmax * (MW_H2O / MW_N / 1e6) * molW
+    #   molN >= Cmin * (MW_H2O / MW_N / 1e6) * molW
+    pm.conPurityED1 = pyo.Constraint(
+        expr=pm.molNStream2 <= 400 * (pm.molweightH2OgMol / pm.molweightN / 1e6) * pm.molWStream2
+    )
+    pm.conPurityED3 = pyo.Constraint(
+        expr=pm.molNStream7 >= 30000 * (pm.molweightH2OgMol / pm.molweightN / 1e6) * pm.molWStream7
+    )
+    
+
+    # =========================================================================
+    # SECOND-STAGE VARIABLES: Unit-Local ED Model Variables for Each Unit
+    # =========================================================================
+    
+    # Unit-local decision variables
+    pm.I                    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-1, 1e3), initialize={1:20, 2:0.1, 3:35})
+    pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.85, 2:0.37, 3:0})
+    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 100), initialize={1:0.96, 2:0.01, 3:1.3})
+    pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.2, 2:0.11, 3:0.1})
+    pm.thicknessConcentrate = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
+    pm.thicknessDilute      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
+    
+    # Unit-local outlet variables
+    pm.flowOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=0.01)
+    pm.flowOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 10), initialize={1:0.99, 2:0.5, 3:0.5})
+    pm.concOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize={1:20, 2:5, 3:1})
+    pm.concOutDiluteND      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=0.3)
+
+    # NOTE: If you want the molar-flow model to match the old volumetric model's
+    # objective/solution, you likely need to re-introduce the same product/purity
+    # specifications here (and ensure they apply to the correct outlet streams).
+    
+    # Unit-local voltage and resistance
+    pm.voltCellPair    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 5), initialize={1:0.38, 2:0.33, 3:0.63})
+    pm.resConcentrate  = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
+    pm.resDilute       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
+    pm.voltNonOhmicCEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
+    pm.voltNonOhmicAEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
+
+    
+    # Unit-local cost variables
+    pm.capex     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.opex1     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.opex2     = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    pm.costTotal = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1e6), initialize=1e6)
+    
     
     # =========================================================================
     # EXPRESSIONS: Unit-Local Inlet Conditions from Flowsheet Interface
     # =========================================================================
     
-    # Unit 1: Inlet from flowsheet feed + recycle from ED2 (stream 6)
-    def flowInED1(m):
-        return m.flowInFeed + m.flowStream6
-    pm.flowInED1 = pyo.Expression(rule=flowInED1)
+    # first, convert flowsheet level molar flows to volumetric flows and concentrations
+    pm.massStream1 = pyo.Expression(expr = pm.molNStream1 * pm.molweightN + pm.molWStream1 * pm.molweightH2OgMol)   # units: g/s
+    pm.flowStream1 = pyo.Expression(expr = pm.massStream1 / pm.densityH2OGM3)   # units: m3/s
+
+    pm.concStream1 = pyo.Expression(expr = pm.molNStream1 / pm.flowStream1)   # units: mol/m3
+
+    # Unit 1: stream 1 from mixer 1 (feed + recycle from ED1)
+    pm.flowInED1 = pyo.Expression(expr = pm.flowStream1)
+    pm.concInED1 = pyo.Expression(expr = pm.concStream1)
+
+    pm.massStream4 = pyo.Expression(expr = pm.molNStream4 * pm.molweightN + pm.molWStream4 * pm.molweightH2OgMol)   # units: g/s
+    pm.flowStream4 = pyo.Expression(expr = pm.massStream4 / pm.densityH2OGM3)   # units: m3/s
+
+    pm.concStream4 = pyo.Expression(expr = pm.molNStream4 / pm.flowStream4)   # units: mol/m3
+
+    # Unit 2: stream 4 from mixer 2 (concentrate from ED1 + recycle from ED2)
+    pm.flowInED2 = pyo.Expression(expr = pm.flowStream4)
+    pm.concInED2 = pyo.Expression(expr = pm.concStream4)
     
-    def concInED1(m):
-        # Blended inlet concentration from feed and recycle
-        return (m.flowInFeed * m.concInFeed + m.flowStream6 * m.concStream6) / pm.flowInED1
-    pm.concInED1 = pyo.Expression(rule=concInED1)
-    
-    # Unit 2: Inlet from ED1 (stream 3) + recycle from ED3 (stream 8)
-    def flowInED2(m):
-        return m.flowStream3 + m.flowStream8
-    pm.flowInED2 = pyo.Expression(rule=flowInED2)
-    
-    def concInED2(m):
-        return (m.flowStream3 * m.concStream3 + m.flowStream8 * m.concStream8) / pm.flowInED2
-    pm.concInED2 = pyo.Expression(rule=concInED2)
-    
-    # Unit 3: Inlet from ED2 (stream 5)
-    def flowInED3(m):
-        return m.flowStream5
-    pm.flowInED3 = pyo.Expression(rule=flowInED3)
-    
-    def concInED3(m):
-        return m.concStream5
-    pm.concInED3 = pyo.Expression(rule=concInED3)
+    pm.massStream5 = pyo.Expression(expr = pm.molNStream5 * pm.molweightN + pm.molWStream5 * pm.molweightH2OgMol)   # units: g/s
+    pm.flowStream5In = pyo.Expression(expr = pm.massStream5 / pm.densityH2OGM3)   # units: m3/s
+
+    pm.concStream5In = pyo.Expression(expr = pm.molNStream5 / pm.flowStream5In)   # units: mol/m3
+
+    # Unit 3: stream 5 from ED2 dilute outlet → ED3 inlet
+    pm.flowInED3 = pyo.Expression(expr = pm.flowStream5In)
+    pm.concInED3 = pyo.Expression(expr = pm.concStream5In)
     
     # =========================================================================
     # UNIT MODELS: Create Three Independent ED Unit Submodels
-    # =========================================================================
-    
-    # Create dictionaries to hold unit-specific inlet parameters and expressions
-    # pm.flowInUnit = {1: pm.flowInED1, 2: pm.flowInED2, 3: pm.flowInED3}
-    # pm.concInUnit = {1: pm.concInED1, 2: pm.concInED2, 3: pm.concInED3}
-
-    # def scaleFacFlowRule(m, unitIdx):
-    #     return m.scaleFacFlow[unitIdx] == 192555 / (1000 * 24 * 60 * 60) / m.numCells
-    # pm.conScaleFacFlow = pyo.Constraint(pm.units, rule=scaleFacFlowRule)
-
-    # def scaleFacConcRule(m, unitIdx):
-    #     return m.scaleFacConc[unitIdx] == 1366 / m.molweightN
-    # pm.conScaleFacConc = pyo.Constraint(pm.units, rule=scaleFacConcRule)
-
-
+    # ========================================================================
 
     def flowInConcRule(m, unitIdx):
         if unitIdx == 1:
@@ -404,6 +439,12 @@ def const_model():
         return m.osmWaterFluxAEM[unitIdx] + m.osmWaterFluxCEM[unitIdx] + m.eosmWaterFlux[unitIdx]
     pm.fluxWaterTotal = pyo.Expression(pm.units, rule=fluxWaterTotalRule)
 
+
+
+    ######################################################################################################
+    # CONSTRUCT CONSTRAINTS
+    ######################################################################################################
+
     def resConcRule(m, unitIdx):
         return m.resConcentrate[unitIdx] * m.conducConcentrate * m.avgConcConc[unitIdx] - m.thicknessConcentrate[unitIdx] == 0
     pm.resConcConstraint = pyo.Constraint(pm.units, rule=resConcRule)
@@ -487,109 +528,107 @@ def const_model():
         return m.opex2[unitIdx] == pumpingCost
     pm.conopex2 = pyo.Constraint(pm.units, rule=opex2Rule)
 
-    # def costTotalRule(m, unitIdx):
-    #     return m.costTotal[unitIdx] == m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx]
-    # pm.conCostTotal = pyo.Constraint(pm.units, rule=costTotalRule)
-    
 
-    # =========================================================================
-    # Flowsheet-level product purity specifications (enforced at units 1 and 3)
-    # =========================================================================
-    def puritySpecConcRule(m, unitIdx):
-        if unitIdx == 1:
-            return m.concOutDiluteND[unitIdx] - 0.04 * 10**4 / (m.scaleFacConc[unitIdx] * m.molweightN) <= 0
-        if unitIdx == 2:
-            return pyo.Constraint.Skip
-        return m.concOutConcentrateND[unitIdx] - 3 * 10**4 / (m.scaleFacConc[unitIdx] * m.molweightN) >= 0
-    pm.conPuritySpecConc = pyo.Constraint(pm.units, rule=puritySpecConcRule)
+    # convert outlet flows and concentrations to molar flows for flowsheet-level linking
 
-    # =========================================================================
-    # LINKING CONSTRAINTS: Connect Broken Streams to Unit Outlets
-    # =========================================================================
-    
-    # Stream 3: ED1 concentrate outlet → ED2 inlet (enforced only at unit 1)
-    def linkStream3FlowRule(m, unitIdx):
+    # unit 1 outlets: stream 2 (dilute), stream 3 (concentrate)
+    pm.flowStream2 = pyo.Expression(expr = pm.flowOutDiluteND[1] * pm.scaleFacFlow[1]  * pm.numCells)   # units: m3/s 
+    pm.concStream2 = pyo.Expression(expr = pm.concOutDiluteND[1] * pm.scaleFacConc[1])   # units: mol/m3
+    def conMolNStream2Rule(m, unitIdx):
         if unitIdx != 1:
             return pyo.Constraint.Skip
-        return m.flowStream3 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
-    pm.conLinkStream3Flow = pyo.Constraint(pm.units, rule=linkStream3FlowRule)
-
-    def linkStream3ConcRule(m, unitIdx):
+        return m.molNStream2 == m.concStream2 * m.flowStream2
+    pm.conMolNStream2 = pyo.Constraint(pm.units, rule=conMolNStream2Rule)   # units: mol/s 
+    def conMolWStream2Rule(m, unitIdx):
         if unitIdx != 1:
             return pyo.Constraint.Skip
-        return m.concStream3 == m.concOutConcentrateND[unitIdx] * m.scaleFacConc[unitIdx]
-    pm.conLinkStream3Conc = pyo.Constraint(pm.units, rule=linkStream3ConcRule)
+        return m.molWStream2 == m.flowStream2 * (pm.densityH2OGM3 - (pm.concStream2 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream2 = pyo.Constraint(pm.units, rule=conMolWStream2Rule)   # units: mol/s
 
-    # Stream 5: ED2 concentrate outlet → ED3 inlet (enforced only at unit 2)
-    def linkStream5FlowRule(m, unitIdx):
+    pm.flowStream3 = pyo.Expression(expr = pm.flowOutConcentrateND[1] * pm.scaleFacFlow[1] * pm.numCells)
+    pm.concStream3 = pyo.Expression(expr = pm.concOutConcentrateND[1] * pm.scaleFacConc[1])   # units: mol/m3
+    def conMolNStream3Rule(m, unitIdx):
+        if unitIdx != 1:
+            return pyo.Constraint.Skip
+        return m.molNStream3 == m.concStream3 * m.flowStream3
+    pm.conMolNStream3 = pyo.Constraint(pm.units, rule=conMolNStream3Rule)   # units: mol/s
+    def conMolWStream3Rule(m, unitIdx):
+        if unitIdx != 1:
+            return pyo.Constraint.Skip
+        return m.molWStream3 == m.flowStream3 * (pm.densityH2OGM3 - (pm.concStream3 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream3 = pyo.Constraint(pm.units, rule=conMolWStream3Rule)   # units: mol/s
+
+    # unit 2 outlets: stream 5 (concentrate), stream 6 (dilute) 
+    pm.flowStream5 = pyo.Expression(expr = pm.flowOutConcentrateND[2] * pm.scaleFacFlow[2] * pm.numCells)
+    pm.concStream5 = pyo.Expression(expr = pm.concOutConcentrateND[2] * pm.scaleFacConc[2])
+    def conMolNStream5Rule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.flowStream5 == m.flowOutConcentrateND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
-    pm.conLinkStream5Flow = pyo.Constraint(pm.units, rule=linkStream5FlowRule)
-
-    def linkStream5ConcRule(m, unitIdx):
+        return m.molNStream5 == m.concStream5 * m.flowStream5
+    pm.conMolNStream5 = pyo.Constraint(pm.units, rule=conMolNStream5Rule)   # units: mol/s
+    def conMolWStream5Rule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.concStream5 == m.concOutConcentrateND[unitIdx] * m.scaleFacConc[unitIdx]
-    pm.conLinkStream5Conc = pyo.Constraint(pm.units, rule=linkStream5ConcRule)
+        return m.molWStream5 == m.flowStream5 * (pm.densityH2OGM3 - (pm.concStream5 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream5 = pyo.Constraint(pm.units, rule=conMolWStream5Rule)   # units: mol/s
 
-    # Stream 6: ED2 dilute outlet → ED1 recycle (enforced only at unit 2)
-    def linkStream6FlowRule(m, unitIdx):
+    pm.flowStream6 = pyo.Expression(expr = pm.flowOutDiluteND[2] * pm.scaleFacFlow[2] * pm.numCells)
+    pm.concStream6 = pyo.Expression(expr = pm.concOutDiluteND[2] * pm.scaleFacConc[2])
+    def conMolNStream6Rule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.flowStream6 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
-    pm.conLinkStream6Flow = pyo.Constraint(pm.units, rule=linkStream6FlowRule)
-
-    def linkStream6ConcRule(m, unitIdx):
+        return m.molNStream6 == m.concStream6 * m.flowStream6
+    pm.conMolNStream6 = pyo.Constraint(pm.units, rule=conMolNStream6Rule)   # units: mol/s
+    def conMolWStream6Rule(m, unitIdx):
         if unitIdx != 2:
             return pyo.Constraint.Skip
-        return m.concStream6 == m.concOutDiluteND[unitIdx] * m.scaleFacConc[unitIdx]
-    pm.conLinkStream6Conc = pyo.Constraint(pm.units, rule=linkStream6ConcRule)
+        return m.molWStream6 == m.flowStream6 * (pm.densityH2OGM3 - (pm.concStream6 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream6 = pyo.Constraint(pm.units, rule=conMolWStream6Rule)   # units: mol/s
 
-    # Stream 8: ED3 dilute → ED2 recycle (enforced only at unit 3)
-    def linkStream8FlowRule(m, unitIdx):
+    # unit 3 outlets: stream 7 (concentrate), stream 8 (dilute)
+    pm.flowStream7 = pyo.Expression(expr = pm.flowOutConcentrateND[3] * pm.scaleFacFlow[3] * pm.numCells)
+    pm.concStream7 = pyo.Expression(expr = pm.concOutConcentrateND[3] * pm.scaleFacConc[3])
+    def conMolNStream7Rule(m, unitIdx):
         if unitIdx != 3:
             return pyo.Constraint.Skip
-        return m.flowStream8 == m.flowOutDiluteND[unitIdx] * m.scaleFacFlow[unitIdx] * m.numCells
-    pm.conLinkStream8Flow = pyo.Constraint(pm.units, rule=linkStream8FlowRule)
-
-    def linkStream8ConcRule(m, unitIdx):
+        return m.molNStream7 == m.concStream7 * m.flowStream7
+    pm.conMolNStream7 = pyo.Constraint(pm.units, rule=conMolNStream7Rule)   # units: mol/s
+    def conMolWStream7Rule(m, unitIdx):
         if unitIdx != 3:
             return pyo.Constraint.Skip
-        return m.concStream8 == m.concOutDiluteND[unitIdx] * m.scaleFacConc[unitIdx]
-    pm.conLinkStream8Conc = pyo.Constraint(pm.units, rule=linkStream8ConcRule)
-    
+        return m.molWStream7 == m.flowStream7 * (pm.densityH2OGM3 - (pm.concStream7 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream7 = pyo.Constraint(pm.units, rule=conMolWStream7Rule)   # units: mol/s
 
-    
-    # =========================================================================
-    # UNIT EQUATIONS: Add ED unit physics for each unit
-    # =========================================================================
-    
-    # For each unit, add:
-    # - Scaling factors
-    # - Dimensional-less numbers, interface concentrations, salt fluxes, water fluxes, resistances
-    # - Mass balance, component balance
-    # - Voltage equation
-    # - Concentration targets / bounds
-    # - Current density limits
-    # - Cost equations
-    
-    # Indexed unit equations are added above as pm.* components on pm.units.
-    # The old per-unit helper call is kept out so the model does not create
-    # duplicate scalar constraints.
-    
+    pm.flowStream8 = pyo.Expression(expr = pm.flowOutDiluteND[3] * pm.scaleFacFlow[3] * pm.numCells )
+    pm.concStream8 = pyo.Expression(expr = pm.concOutDiluteND[3] * pm.scaleFacConc[3])      
+    def conMolNStream8Rule(m, unitIdx):
+        if unitIdx != 3:
+            return pyo.Constraint.Skip
+        return m.molNStream8 == m.concStream8 * m.flowStream8
+    pm.conMolNStream8 = pyo.Constraint(pm.units, rule=conMolNStream8Rule)   # units: mol/s
+    def conMolWStream8Rule(m, unitIdx):
+        if unitIdx != 3:
+            return pyo.Constraint.Skip
+        return m.molWStream8 == m.flowStream8 * (pm.densityH2OGM3 - (pm.concStream8 * pm.molweightN)) / pm.molweightH2OgMol
+    pm.conMolWStream8 = pyo.Constraint(pm.units, rule=conMolWStream8Rule)   # units: mol/s
+
+    if returnPyomoModel:
+        return pm
+
     # =========================================================================
     # OBJECTIVE: Minimize total cost across all units
     # =========================================================================
     builder = StoModelBuilder('pyomo', name='EDUnit', m_type='NLP', hint=False)
     scenarios = list(pm.units)
-    var1_names = ["flowStream3", "concStream3", "flowStream5", "concStream5", "flowStream6", "concStream6", "flowStream8", "concStream8"]
-    con1_names = []
+    var1_names = ["molNStream1","molWStream1","molNStream2","molWStream2","molNStream3","molWStream3",
+                  "molNStream4","molWStream4","molNStream5","molWStream5","molNStream6","molWStream6","molNStream7","molWStream7","molNStream8","molWStream8"]
+    con1_names = ["conMolNMixer1","conMolWMixer1","conMolNMixer2","conMolWMixer2",
+                  "conPurityED1","conPurityED3"]
 
 
     def _obj(m, unitIdx):
         # tonsNTotal = (m.concOutConcentrateND[3] * m.scaleFacConc[3] * m.flowOutConcentrateND[3] * m.scaleFacFlow[3] * m.numCells * m.molweightN * (10**-6) * 7 * 365 * 86400)
-        return 0.001*(m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx])# / tonsNTotal
+        return (m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx]) #/ tonsNTotal
 
     
     objs = {s: _obj for s in scenarios}
