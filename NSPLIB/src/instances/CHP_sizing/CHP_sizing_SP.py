@@ -18,7 +18,7 @@ T_OP = 6000
 p_gas = 80
 p_el_buy = 250
 p_el_sell = 100
-Qdot_nom_min = 1.4  # [MW], per paper Appendix A
+Qdot_nom_min = 1.4  # [MW]
 Qdot_nom_max = 2.3  # [MW]
 Qdot_rel_min = 0.5
 Qdot_eps = 0.001 * Qdot_nom_max
@@ -52,15 +52,10 @@ def eff_th(Qdot_nom, Qdot_rel):
 def eff_el(Qdot_nom, Qdot_rel):
     return eff_el_nom(Qdot_nom) * eff_el_rel(Qdot_rel)
 
-def Edot_in_expr(Qdot_nom, Qdot_rel):
-    return Qdot_nom * Qdot_rel / eff_th(Qdot_nom, Qdot_rel)
 
-def P_out_expr(Qdot_nom, Qdot_rel):
-    return Edot_in_expr(Qdot_nom, Qdot_rel) * eff_el(Qdot_nom, Qdot_rel)
-
-
-# Bounds for auxiliary variables
-P_out_max = P_out_expr(Qdot_nom_max, 1.0)
+# Variable bounds matching MAiNGO Python get_variables()
+Edot_in_max = Qdot_nom_max / eff_th(Qdot_nom_max, 1.0)
+P_out_max = Qdot_nom_max * eff_el(Qdot_nom_max, 1.0) / eff_th(Qdot_nom_max, 1.0)
 P_dem_max = max(d[1] for d in DEFAULT_DATA)
 
 
@@ -75,26 +70,40 @@ def const_model():
     # First-stage variable: nominal heat output [MW]
     pm.Qdot_nom = Var(within=Reals, bounds=(Qdot_nom_min, Qdot_nom_max), initialize=Qdot_nom_max)
 
-    # Second-stage variable: relative heat output per scenario (reduced space)
+    # Second-stage variables per scenario — matches MAiNGO non-reduced-space (Ny=3):
+    #   Qdot_rel, Edot_in, P_out
     pm.Qdot_rel = Var(pm.S, within=Reals, bounds=(0.0, 1.0), initialize=1.0)
-
-    # Auxiliary variables for power buy/sell (max() reformulation via power balance)
+    pm.Edot_in = Var(pm.S, within=Reals, bounds=(0.0, Edot_in_max), initialize=Edot_in_max)
+    pm.P_out = Var(pm.S, within=Reals, bounds=(0.0, P_out_max), initialize=P_out_max)
+    # P_buy/P_sell linearise max(0, P_grid) and max(0, -P_grid) for the NLP solver
     pm.P_buy = Var(pm.S, within=Reals, bounds=(0.0, P_dem_max), initialize=0.0)
     pm.P_sell = Var(pm.S, within=Reals, bounds=(0.0, P_out_max), initialize=0.0)
 
     pm.obj = Objective(sense=1, expr=sum(
-        pm.prob[s] * (
+        1000*pm.prob[s] * (
             1e-6 * (af + c_m) * c_ref * (pm.Qdot_nom / Qdot_nom_ref)**M
             + 1e-6 * T_OP * (
-                p_gas * Edot_in_expr(pm.Qdot_nom, pm.Qdot_rel[s])
+                p_gas * pm.Edot_in[s]
                 + p_el_buy * pm.P_buy[s]
                 - p_el_sell * pm.P_sell[s]
             )
         ) for s in pm.S
     ))
 
+    # Edot_in definition: Edot_in * eff_th = Qdot_nom * Qdot_rel
+    def c_edot_in_def(m, s):
+        return (m.Edot_in[s] * eff_th(m.Qdot_nom, m.Qdot_rel[s])
+                - m.Qdot_nom * m.Qdot_rel[s] == 0)
+    pm.c_edot_in_def = Constraint(pm.S, rule=c_edot_in_def)
+
+    # P_out definition: P_out = Edot_in * eff_el
+    def c_p_out_def(m, s):
+        return m.P_out[s] - m.Edot_in[s] * eff_el(m.Qdot_nom, m.Qdot_rel[s]) == 0
+    pm.c_p_out_def = Constraint(pm.S, rule=c_p_out_def)
+
+    # Power balance: P_buy - P_sell = P_dem - P_out (linearises max() for the NLP solver)
     def c_power_balance(m, s):
-        return m.P_buy[s] - m.P_sell[s] - m.P_dem[s] + P_out_expr(m.Qdot_nom, m.Qdot_rel[s]) == 0
+        return m.P_buy[s] - m.P_sell[s] - m.P_dem[s] + m.P_out[s] == 0
     pm.c_power_balance = Constraint(pm.S, rule=c_power_balance)
 
     def c_heat_demand(m, s):
@@ -105,8 +114,7 @@ def const_model():
         return vertex_form(m.Qdot_rel[s], -1.0, Qdot_rel_min + Qdot_eps, -Qdot_rel_min * Qdot_eps) <= 0
     pm.c_min_partload = Constraint(pm.S, rule=c_min_partload)
 
-    # Model transformation -----------------------------------------------------
-
+    # Model transformation
     builder = StoModelBuilder('pyomo', name='CHP_sizing', m_type='NLP', hint=False)
 
     scenarios = list(pm.S)
@@ -114,10 +122,10 @@ def const_model():
     con1_names = []
 
     def _obj(m, s):
-        return m.prob[s] * (
+        return 1000 * m.prob[s] * (
             1e-6 * (af + c_m) * c_ref * (m.Qdot_nom / Qdot_nom_ref)**M
             + 1e-6 * T_OP * (
-                p_gas * Edot_in_expr(m.Qdot_nom, m.Qdot_rel[s])
+                p_gas * m.Edot_in[s]
                 + p_el_buy * m.P_buy[s]
                 - p_el_sell * m.P_sell[s]
             )

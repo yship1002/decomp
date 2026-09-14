@@ -179,7 +179,6 @@ class CaoZavalaAlgo(DecompAlgo):
         # only feed scenario index that needs to be solved
         combined_results = {}
         for s in self.model.scenarios:
-            print("Scenario to solve:", s)
             # Reset variable values to None to prevent baron start from last solution
             for i in self.model.y_set:
                 self.model.aux_models['lbd'][s].y[i].set_value(None)
@@ -191,6 +190,9 @@ class CaoZavalaAlgo(DecompAlgo):
             if results['Problem'][0]['Lower bound'] == float("inf"):
                 print("Lower bound is infinity, return infinity.")
                 break
+            if len(node.lbd_scenario)>0 and results['Problem'][0]['Lower bound'] < node.lbd_scenario[s]:
+                results['Problem'][0]['Lower bound']=node.lbd_scenario[s]
+
 
         # debrief results of each scenario subproblem solution
         for scenario,value in combined_results.items():

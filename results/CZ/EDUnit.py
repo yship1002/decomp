@@ -1,35 +1,43 @@
 from NSPLIB.src.instances.EDUnit.EDUnits import const_model
+
 from src.models.cz_model import CaoZavalaModel, CaoZavalaAlgo
 import cProfile
 import numpy as np
 from pyomo.environ import *
-# UBD:106451 0.303787+0 m = const_model()
+# UBD:57608.7
+
 sto_m = const_model()
 m = CaoZavalaModel.from_sto_m(sto_m)
 m.build()
-new_bound={
-  "molNStream1": [0.0,2.75],
-    "molWStream1": [375.0000, 500.0000],
-  "molNStream2": [0.0000, 3.0000],
-  "molWStream2": [375.0000, 500.0000],
-  "molNStream3": [0.0000, 3.2500],
-  "molWStream3": [0.0000, 250.0000],
-    "molNStream4": [0.0000, 7.0000],
-    "molWStream4": [250.0000, 500.0000],
-    "molNStream5": [7.5000, 15.0000],
-    "molWStream5": [0.0000, 500.0000],
-    "molNStream6": [0.0000, 16.0000],
-    "molWStream6": [0.0000, 500.0000],
-    "molNStream7": [0.0000, 17.0000],
-    "molWStream7": [0.0000, 500.0000],
-    "molNStream8": [0.0000, 18.0000],
-    "molWStream8": [0.0000, 500.0000]
-}
-#m.update_y_bound(new_bound)
-alg=CaoZavalaAlgo(m,solver="baron")
-alg.solve(max_iter=1e5, max_time=3600*24,ubd_provided=57608)
-   
-# tol=1e-3
+eps=10
+#        Key         : Lower : Value                : Upper : Fixed : Stale : Domain
+        # molNStream1 : 1e-05 :  0.22285463857648757 :    11 : False : False : NonNegativeReals
+        # molNStream2 : 1e-05 : 0.061479954752751274 :    12 : False : False : NonNegativeReals
+        # molNStream3 : 1e-05 :   0.1613746838237363 :    13 : False : False : NonNegativeReals
+        # molNStream4 : 1e-05 :                 14.0 :    14 : False : False : NonNegativeReals
+        # molNStream5 : 1e-05 :   13.994493502551212 :    15 : False : False : NonNegativeReals
+        # molNStream6 : 1e-05 :  0.00550649744878918 :    16 : False : False : NonNegativeReals
+        # molNStream7 : 1e-05 :  0.15586818637494734 :    17 : False : False : NonNegativeReals
+        # molNStream8 : 1e-05 :   13.838625316176264 :    18 : False : False : NonNegativeReals
+        # molWStream1 : 1e-05 :   123.68491498701013 :   500 : False : False : NonNegativeReals
+        # molWStream2 : 1e-05 :   119.50012464909804 :   500 : False : False : NonNegativeReals
+        # molWStream3 : 1e-05 :    4.184790337912115 :   500 : False : False : NonNegativeReals
+        # molWStream4 : 1e-05 :   363.13431969472566 :   500 : False : False : NonNegativeReals
+        # molWStream5 : 1e-05 :   362.98906121735627 :   500 : False : False : NonNegativeReals
+        # molWStream6 : 1e-05 :  0.14525847736943553 :   500 : False : False : NonNegativeReals
+        # molWStream7 : 1e-05 :    4.039531860542781 :   500 : False : False : NonNegativeReals
+        # molWStream8 : 1e-05 :   358.94952935681357 :   500 : False : False : NonNegativeReals
+
+# m.update_y_bound(EDUnits_sol)
+
+tol=1e-3
 # from pyomo.opt import SolverFactory
-# solver=SolverFactory("baron",options = {'EpsA': 1e-6, 'TDo':0,"AbsConsFeasTol":1e-3})
-# solver.solve(m.origin_model,tee=True,keepfiles=True)
+# for i in range(3):
+#     solver=SolverFactory("baron",options = {'EpsA': 1e-3, 'TDo':0,"AbsConFeasTol":1e-2})
+#     solver.solve(m.aux_models["lbd"][i+1],tee=True) 
+# solver=SolverFactory("baron",options = {'EpsA': 1e-3, 'TDo':0,"AbsConFeasTol":1e-2})
+# solver.solve(m.origin_model,tee=True)
+
+
+alg=CaoZavalaAlgo(m,solver="baron")
+alg.solve(max_iter=1e8, max_time=3600*12, tol=1e-3,ubd_provided=57608.7)

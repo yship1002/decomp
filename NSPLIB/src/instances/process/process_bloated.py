@@ -1,3 +1,5 @@
+from ast import Param
+
 from ...main import StoModelBuilder
 import numpy as np
 from pyomo.environ import *
@@ -28,20 +30,20 @@ def const_model():
     np.random.seed(0)
     pm = ConcreteModel()
 
-    pm.S = Set(initialize=[0, 1, 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19])
+    pm.S = Set(initialize=[0, 1, 2,3,4,5,6,7,8,9])
+
 
 
     pm.perturb = Param(pm.S, initialize={0: 1.0976270078546495, 1: 9.430378732744838, 
                         2: 6.6027633760716435, 3: 1.3514894164800063, 4: 4.236547993428394, 
                         5: 2.155994520336202, 6: 5.0580836121681994, 7: 2.0849789288240969,
-                        8: 5.6016775572644488, 9: 4.3503766112257304,10: 1.0976270078546495,
-                        11: 9.430378732744838, 12: 6.6027633760716435, 13: 1.3514894164800063, 14: 4.236547993428394,
-                        15: 2.155994520336202, 16: 5.0580836121681994, 17: 2.0849789288240969,
-                        18: 5.6016775572644488, 19: 4.3503766112257304})
-    pm.prob = Param(pm.S, initialize={0: 1 / 20, 1: 1 / 20, 2: 1 / 20, 3: 1 / 20, 
-                                      4: 1 / 20, 5: 1 / 20, 6: 1 / 20, 
-                                      7: 1 / 20, 8: 1 / 20, 9: 1 / 20,10: 1 / 20, 11: 1 / 20, 12: 1 / 20, 13: 1 / 20, 
-                                      14: 1 / 20, 15: 1 / 20, 16: 1 / 20, 17: 1 / 20, 18: 1 / 20, 19: 1 / 20})
+                        8: 5.6016775572644488, 9: 4.3503766112257304})
+
+    probability = 1 / len(pm.S)
+    pm.prob = Param(pm.S, initialize={0: probability, 1: probability, 2: probability, 3: probability, 
+                                      4: probability, 5: probability, 6: probability, 
+                                      7: probability, 8: probability, 9: probability})
+
     pm.x1 = Var(within=Reals, bounds=(10,2000), initialize=1745)
     pm.x2 = Var(within=Reals, bounds=(0,16000), initialize=12000)
     pm.x3 = Var(within=Reals, bounds=(0,120), initialize=110)

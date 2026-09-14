@@ -349,11 +349,12 @@ class DecompAlgo(ABC):
                 node_1.lbd=node.lbd
             if node.lbd>node_2_lbd:
                 node_2.lbd=node.lbd
+            
             # update weights
-            #self.bb_heuristic.update_weight(node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_1) # type: ignore
             # very weird pass by address issue need to debug later on this but this one currently works
-            #self.bb_heuristic.update_weight( node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_1) # type: ignore
-            #self.bb_heuristic.update_weight( node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_2) # type: ignore
+            if kwargs.get('pseudo', False):
+                self.bb_heuristic.update_weight( node_1_lbd - node.lbd, node_2_lbd - node.lbd, branch_idx, node_1) # type: ignore
+
 
             # optimality gap
             ubd = self.res.last_ubd
@@ -441,7 +442,8 @@ class DecompAlgo(ABC):
         self.calc_ubd(root, **kwargs)
 
         self.calc_lbd(root,**kwargs)
-        #root=self.bb_heuristic.strong_branching(root,given_ubd)
+        if kwargs.get('pseudo', False):
+            root=self.bb_heuristic.strong_branching(root,given_ubd)
         self.res.add_ubd(min(root.ubd, given_ubd))
         self.res.add_lbd(root.lbd)
         self.res.get_gap()
@@ -474,7 +476,7 @@ class DecompAlgo(ABC):
 
         return node
 
-    def _branch(self, node: BranchBoundNode):
+    def _branch(self, node: BranchBoundNode,**kwargs):
         """
         Branch on the given node.
         """
@@ -492,7 +494,9 @@ class DecompAlgo(ABC):
         # find the dimension with the largest width
         branching_idx = max(width, key=width.get) # type: ignore
 
-        #branching_idx = self.bb_heuristic.get_branching_idx(node)
+        if kwargs.get('pseudo', False):
+            branching_idx = self.bb_heuristic.get_branching_idx(node)
+
         print(f"branching on {branching_idx} with rel width {width[branching_idx]:.4f}")
         print(f"current bound on {branching_idx} is [{bound[branching_idx][0]:.4f}, {bound[branching_idx][1]:.4f}]")
         # partition on the calculated dimension
@@ -519,20 +523,17 @@ class DecompAlgo(ABC):
         # compute bounds of child nodes
         # y1
         # lower bound
-        for idx in node_1.bound:
-            print(f"node 1 bound on {idx}: [{node_1.bound[idx][0]:.4f}, {node_1.bound[idx][1]:.4f}]")
+
         node_1_lbd=self.calc_lbd(node_1, **kwargs)
-        print("LBD solved")
+
         if node_1_lbd == float('inf'):
             self.calc_ubd(node_1, is_lbd_inf=True, **kwargs)
         else:
             self.calc_ubd(node_1, is_lbd_inf=False, **kwargs)
         # y2
         # lower bound
-        for idx in node_2.bound:
-            print(f"node 2 bound on {idx}: [{node_2.bound[idx][0]:.4f}, {node_2.bound[idx][1]:.4f}]")
+
         node_2_lbd=self.calc_lbd(node_2, **kwargs)
-        print("LBD solved")
         if node_2_lbd == float('inf'):
             self.calc_ubd(node_2, is_lbd_inf=True, **kwargs)
         else:

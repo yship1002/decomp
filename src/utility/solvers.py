@@ -111,7 +111,6 @@ class BaronSolver(_Solver):
         self.solver.options["FirstLoc"]=kwargs.get('first_loc', 0)
         
         self.solver.options['MaxTime'] = 1000
-        self.solver.options["TDo"]=0 # Nonlinear-feasibility-based range reduction option (poor man’s NLPs
         #self.solver.options["MDo"]=0 # marginal based range reduction
         #self.solver.options["LBTTDo"]=0 #linear feasibility based range reducion(poor man's LP)
         #self.solver.options["OBTTDo"]=0 #optimality based range reduction default: 1
@@ -119,8 +118,6 @@ class BaronSolver(_Solver):
         # self.solver.options["BrVarStra"]=0 # default branching variable strategy by baron
         #self.solver.options["BrPtStra"]=2 # midpoint branch
 
-        self.solver.options["EpsA"]=1E-6
-        self.solver.options["AbsConFeasTol"]=1e-3
         # save log file
         #spec['logfile'] = './log/baron/' + time.strftime("%H-%M-%S-%m-%d-%Y") +'.log'
 

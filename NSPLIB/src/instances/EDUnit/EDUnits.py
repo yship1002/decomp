@@ -121,35 +121,36 @@ def const_model(returnPyomoModel: bool = False):
     
     # all flowsheet level molar flows (mol x Stream x) have units of mol/s
     # stream 1: Mixer1 (feed + recycle from ED1) → ED1 inlet (defined as variables in first stage)
-    pm.molNStream1 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 11), initialize=10)
+    pm.molNStream1 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream1 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
 
     # stream 2: ED1 concentrate outlet → concentrate discard (defined as variables in first stage)
-    pm.molNStream2 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 12), initialize=10)
+    pm.molNStream2 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream2 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
 
     # Stream 3: ED1 dilute outlet → ED2 inlet
-    pm.molNStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 13), initialize=10)
+    pm.molNStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream3 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
 
     # stream 4: Mixer2 (concentrate from ED1 + recycle from ED2) → ED2 inlet (defined as variables in first stage)
-    pm.molNStream4 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 14), initialize=10)
+    pm.molNStream4 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream4 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
     
     # Stream 5: ED2 dilute outlet → ED3 inlet
-    pm.molNStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 15), initialize=10)
+    pm.molNStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream5 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
     
     # Stream 6: ED2 concentrate → ED1 recycle
-    pm.molNStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 16), initialize=1)
+    pm.molNStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=1)
     pm.molWStream6 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
 
+
     # stream 7: ED3 concentrate outlet → flowsheet product (defined as variables in first stage)
-    pm.molNStream7 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 17), initialize=10)
+    pm.molNStream7 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=10)
     pm.molWStream7 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
     
     # Stream 8: ED3 dilute → ED2 recycle
-    pm.molNStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 18), initialize=1)
+    pm.molNStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 10), initialize=1)
     pm.molWStream8 = pyo.Var(within=pyo.NonNegativeReals, bounds=(1e-5, 500), initialize=1)
 
     # =========================================================================
@@ -177,18 +178,52 @@ def const_model(returnPyomoModel: bool = False):
         expr=pm.molNStream7 >= 30000 * (pm.molweightH2OgMol / pm.molweightN / 1e6) * pm.molWStream7
     )
     
+    # Extra constraints to cut off combinations of molar flowrates of N and W
+    # that result in infeasible concentrations (<0 and >40000 mg-N/L)
+    # pm.conConcUBStream1 = pyo.Constraint(
+    #     expr=pm.molNStream1 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream1 * pm.molweightH2OgMol <= 0 
+    # )
+
+    # pm.conConcUBStream2 = pyo.Constraint(
+    #     expr=pm.molNStream2 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream2 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream3 = pyo.Constraint(
+    #     expr=pm.molNStream3 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream3 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream4 = pyo.Constraint(
+    #     expr=pm.molNStream4 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream4 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream5 = pyo.Constraint(
+    #     expr=pm.molNStream5 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream5 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream6 = pyo.Constraint(
+    #     expr=pm.molNStream6 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream6 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream7 = pyo.Constraint(
+    #     expr=pm.molNStream7 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream7 * pm.molweightH2OgMol <= 0
+    # )
+
+    # pm.conConcUBStream8 = pyo.Constraint(
+    #     expr=pm.molNStream8 * (pm.densityH2OGM3 - 40000 * pm.molweightN) - 40000 * pm.molWStream8 * pm.molweightH2OgMol <= 0
+    # )
+
 
     # =========================================================================
     # SECOND-STAGE VARIABLES: Unit-Local ED Model Variables for Each Unit
     # =========================================================================
     
     # Unit-local decision variables
-    pm.I                    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-1, 1e3), initialize={1:20, 2:0.1, 3:35})
+    pm.currentDensity       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0,1e8), initialize={1:20, 2:0.1, 3:35})
     pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.85, 2:0.37, 3:0})
-    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 100), initialize={1:0.96, 2:0.01, 3:1.3})
+    pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.96, 2:0.01, 3:1.3})
     pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.2, 2:0.11, 3:0.1})
-    pm.thicknessConcentrate = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
-    pm.thicknessDilute      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 1), initialize=0.001)
+    pm.thicknessConcentrate = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 0.01), initialize=0.001)
+    pm.thicknessDilute      = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.001, 0.01), initialize=0.001)
     
     # Unit-local outlet variables
     pm.flowOutConcentrateND = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-3, 100), initialize=0.01)
@@ -202,10 +237,10 @@ def const_model(returnPyomoModel: bool = False):
     
     # Unit-local voltage and resistance
     pm.voltCellPair    = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 5), initialize={1:0.38, 2:0.33, 3:0.63})
-    pm.resConcentrate  = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
-    pm.resDilute       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-8, 1), initialize=1e-5)
-    pm.voltNonOhmicCEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
-    pm.voltNonOhmicAEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-7, 1), initialize=0.01)
+    pm.resConcentrate  = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-6, 1e-2), initialize=1e-5)
+    pm.resDilute       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-6, 1e-2), initialize=1e-5)
+    pm.voltNonOhmicCEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-4,0.25), initialize=0.01)
+    pm.voltNonOhmicAEM = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1e-4,0.25), initialize=0.01)
 
     
     # Unit-local cost variables
@@ -360,35 +395,35 @@ def const_model(returnPyomoModel: bool = False):
     pm.iLimDilAEM = pyo.Expression(pm.units, rule=iLimDilAEMRule)
 
     def concInConcIntCEMRule(m, unitIdx):
-        return m.concInConc[unitIdx] * (1 + m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimConcCEM[unitIdx])
+        return m.concInConc[unitIdx] * (1 + m.currentDensity[unitIdx] / m.iLimConcCEM[unitIdx])
     pm.concInConcIntCEM = pyo.Expression(pm.units, rule=concInConcIntCEMRule)
 
     def concInDilIntCEMRule(m, unitIdx):
-        return m.concInDil[unitIdx] * (1 - m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimDilCEM[unitIdx])
+        return m.concInDil[unitIdx] * (1 - m.currentDensity[unitIdx] / m.iLimDilCEM[unitIdx])
     pm.concInDilIntCEM = pyo.Expression(pm.units, rule=concInDilIntCEMRule)
 
     def concInConcIntAEMRule(m, unitIdx):
-        return m.concInConc[unitIdx] * (1 + m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimConcAEM[unitIdx])
+        return m.concInConc[unitIdx] * (1 + m.currentDensity[unitIdx] / m.iLimConcAEM[unitIdx])
     pm.concInConcIntAEM = pyo.Expression(pm.units, rule=concInConcIntAEMRule)
 
     def concInDilIntAEMRule(m, unitIdx):
-        return m.concInDil[unitIdx] * (1 - m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimDilAEM[unitIdx])
+        return m.concInDil[unitIdx] * (1 - m.currentDensity[unitIdx] / m.iLimDilAEM[unitIdx])
     pm.concInDilIntAEM = pyo.Expression(pm.units, rule=concInDilIntAEMRule)
 
     def concOutConcIntCEMRule(m, unitIdx):
-        return m.concOutConcentrateND[unitIdx] * (1 + m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimConcCEM[unitIdx])
+        return m.concOutConcentrateND[unitIdx] * (1 + m.currentDensity[unitIdx] / m.iLimConcCEM[unitIdx])
     pm.concOutConcIntCEM = pyo.Expression(pm.units, rule=concOutConcIntCEMRule)
 
     def concOutDilIntCEMRule(m, unitIdx):
-        return m.concOutDiluteND[unitIdx] * (1 - m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimDilCEM[unitIdx])
+        return m.concOutDiluteND[unitIdx] * (1 - m.currentDensity[unitIdx] / m.iLimDilCEM[unitIdx])
     pm.concOutDilIntCEM = pyo.Expression(pm.units, rule=concOutDilIntCEMRule)
 
     def concOutConcIntAEMRule(m, unitIdx):
-        return m.concOutConcentrateND[unitIdx] * (1 + m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimConcAEM[unitIdx])
+        return m.concOutConcentrateND[unitIdx] * (1 + m.currentDensity[unitIdx] / m.iLimConcAEM[unitIdx])
     pm.concOutConcIntAEM = pyo.Expression(pm.units, rule=concOutConcIntAEMRule)
 
     def concOutDilIntAEMRule(m, unitIdx):
-        return m.concOutDiluteND[unitIdx] * (1 - m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx]) / m.iLimDilAEM[unitIdx])
+        return m.concOutDiluteND[unitIdx] * (1 - m.currentDensity[unitIdx] / m.iLimDilAEM[unitIdx])
     pm.concOutDilIntAEM = pyo.Expression(pm.units, rule=concOutDilIntAEMRule)
 
     def avgConcConcIntCEMRule(m, unitIdx):
@@ -408,7 +443,7 @@ def const_model(returnPyomoModel: bool = False):
     pm.avgConcDilIntAEM = pyo.Expression(pm.units, rule=avgConcDilIntAEMRule)
 
     def condFluxRule(m, unitIdx):
-        return (m.transCEM - (1 - m.transAEM)) * (m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx] * m.faraday))
+        return (m.transCEM - (1 - m.transAEM)) * (m.currentDensity[unitIdx] /  m.faraday)
     pm.condFlux = pyo.Expression(pm.units, rule=condFluxRule)
 
     def diffFluxAEMRule(m, unitIdx):
@@ -496,15 +531,15 @@ def const_model(returnPyomoModel: bool = False):
     pm.conCompBalDil = pyo.Constraint(pm.units, rule=compBalDiluteRule)
 
     def voltageRule(m, unitIdx):
-        return m.voltCellPair[unitIdx] - m.voltNonOhm[unitIdx] - m.resOhmic[unitIdx] * (m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx])) == 0
+        return m.voltCellPair[unitIdx] - m.voltNonOhm[unitIdx] - m.resOhmic[unitIdx] * (m.currentDensity[unitIdx]) == 0
     pm.conVoltage = pyo.Constraint(pm.units, rule=voltageRule)
 
     def limitCurrentCEMRule(m, unitIdx):
-        return m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx] * m.iLimDilCEM[unitIdx]) - 1 <= 0
+        return m.currentDensity[unitIdx] / m.iLimDilCEM[unitIdx] - 1 <= 0
     pm.conLimitCurrCEM = pyo.Constraint(pm.units, rule=limitCurrentCEMRule)
 
     def limitCurrentAEMRule(m, unitIdx):
-        return m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx] * m.iLimDilAEM[unitIdx]) - 1 <= 0
+        return m.currentDensity[unitIdx] /  m.iLimDilAEM[unitIdx] - 1 <= 0
     pm.conLimitCurrAEM = pyo.Constraint(pm.units, rule=limitCurrentAEMRule)
 
     def capexRule(m, unitIdx):
@@ -512,9 +547,9 @@ def const_model(returnPyomoModel: bool = False):
     pm.conCapex = pyo.Constraint(pm.units, rule=capexRule)
 
     def opex1Rule(m, unitIdx):
-        voltBlank = m.resBlank * m.I[unitIdx] / (m.memLength[unitIdx] * m.memWidth[unitIdx])
+        voltBlank = m.resBlank * m.currentDensity[unitIdx]
         voltTotal = voltBlank + m.numCells * m.voltCellPair[unitIdx]
-        return m.opex1[unitIdx] == m.costElec * (24 * 10**-3) * voltTotal * m.I[unitIdx] * m.daysOperation
+        return m.opex1[unitIdx] == m.costElec * (24 * 10**-3) * voltTotal * m.currentDensity[unitIdx] * m.memLength[unitIdx] * m.memWidth[unitIdx] * m.daysOperation
     pm.conOpex1 = pyo.Constraint(pm.units, rule=opex1Rule)
 
     def opex2Rule(m, unitIdx):
@@ -612,6 +647,9 @@ def const_model(returnPyomoModel: bool = False):
         return m.molWStream8 == m.flowStream8 * (pm.densityH2OGM3 - (pm.concStream8 * pm.molweightN)) / pm.molweightH2OgMol
     pm.conMolWStream8 = pyo.Constraint(pm.units, rule=conMolWStream8Rule)   # units: mol/s
 
+    def totalcostRule(m, unitIdx):
+        return m.costTotal[unitIdx] == m.capex[unitIdx] + m.opex1[unitIdx] + m.opex2[unitIdx]
+    pm.conTotalCost = pyo.Constraint(pm.units, rule=totalcostRule)
     if returnPyomoModel:
         return pm
 
@@ -621,9 +659,15 @@ def const_model(returnPyomoModel: bool = False):
     builder = StoModelBuilder('pyomo', name='EDUnit', m_type='NLP', hint=False)
     scenarios = list(pm.units)
     var1_names = ["molNStream1","molWStream1","molNStream2","molWStream2","molNStream3","molWStream3",
-                  "molNStream4","molWStream4","molNStream5","molWStream5","molNStream6","molWStream6","molNStream7","molWStream7","molNStream8","molWStream8"]
+                  "molNStream4","molWStream4","molNStream5","molWStream5","molNStream6","molWStream6",
+                  "molNStream7","molWStream7","molNStream8","molWStream8"]
     con1_names = ["conMolNMixer1","conMolWMixer1","conMolNMixer2","conMolWMixer2",
-                  "conPurityED1","conPurityED3"]
+                  "conPurityED1","conPurityED3",
+                  "conConcUBStream1", "conConcUBStream2", 
+                  "conConcUBStream3", 
+                  "conConcUBStream4", "conConcUBStream5", "conConcUBStream6", 
+                  "conConcUBStream7", "conConcUBStream8"
+                  ]
 
 
     def _obj(m, unitIdx):

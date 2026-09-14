@@ -161,9 +161,11 @@ class BranchBoundNode:
 
         self.left = BranchBoundNode(bound_1)
         self.left.weights = self.weights.copy()
+        self.left.lbd_scenario = self.lbd_scenario.copy()
         self.left.parent=self
         self.right = BranchBoundNode(bound_2)
         self.right.weights = self.weights.copy()
+        self.right.lbd_scenario = self.lbd_scenario.copy()
         self.right.parent=self
         # pass the cuts
         self.left.multiplier_set = self.multiplier_set.copy()
