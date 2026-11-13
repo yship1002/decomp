@@ -67,10 +67,8 @@ def const_model():
         return -m.x1 + 1.22 * m.x4[s] - m.x5 >= 0 - m.perturb[s]
     pm.e2_2 = Constraint(pm.S, rule=e2_2)
 
-
     def e3(m, s):
         return -0.001 * m.x4[s] * m.x9[s] * m.x6[s]  == (m.perturb[s]-m.x3)*(98 - m.x6[s]) 
-
     pm.e3 = Constraint(pm.S, rule=e3)
 
     def e4(m, s):
