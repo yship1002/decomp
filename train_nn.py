@@ -87,20 +87,22 @@ net.load_state_dict(best_state); net.eval()
 print(f"  trained {ep + 1} epochs in {time.time() - t0:.0f}s (best standardised val MSE {best:.4g})", flush=True)
 
 # ---------------- 3. export to ONNX (raw inputs -> raw output; scaling folded into first / last Linear) ----------------
-ex = copy.deepcopy(net).eval(); lins = [l for l in ex if isinstance(l, nn.Linear)]
+# The folding and the file are in float64 (double): with large input means / small spreads and large labels, rounding the folded weights
+# to float32 changes the network's output by hundreds, which is far more than the model's own error.
+ex = copy.deepcopy(net).double().eval(); lins = [l for l in ex if isinstance(l, nn.Linear)]
 with torch.no_grad():
-    first, last = lins[0], lins[-1]; sx, mx = torch.tensor(x_std), torch.tensor(x_mean)
+    first, last = lins[0], lins[-1]; sx, mx = torch.tensor(x_std, dtype=torch.float64), torch.tensor(x_mean, dtype=torch.float64)
     first.bias.copy_(first.bias - first.weight @ (mx / sx)); first.weight.copy_(first.weight / sx)
     last.weight.mul_(y_std); last.bias.copy_(last.bias * y_std + y_mean)
 model_path = os.path.join(OUT_DIR, f"model_s{SS}_{TAG}.onnx")
 _kw = dict(input_names=["input"], output_names=["output"], opset_version=13, dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}})
 try:      # newer PyTorch: force the legacy exporter so layers are plain Gemm nodes (what OMLT reads)
-    torch.onnx.export(ex, torch.zeros(1, X.shape[1]), model_path, dynamo=False, **_kw)
+    torch.onnx.export(ex, torch.zeros(1, X.shape[1], dtype=torch.float64), model_path, dynamo=False, **_kw)
 except TypeError:   # older PyTorch (e.g. 2.1) has no `dynamo` argument; its default exporter is already the legacy one
-    torch.onnx.export(ex, torch.zeros(1, X.shape[1]), model_path, **_kw)
+    torch.onnx.export(ex, torch.zeros(1, X.shape[1], dtype=torch.float64), model_path, **_kw)
 onnx.checker.check_model(onnx.load(model_path))
 # --- check the exported file ---
-# (1) float64 evaluation of the ONNX network exactly as the solver will see it (its float32 weights, evaluated in double precision)
+# (1) float64 evaluation of the ONNX network exactly as the solver will see it
 from onnx import numpy_helper
 _g = onnx.load(model_path).graph; _W = {t.name: numpy_helper.to_array(t).astype(np.float64) for t in _g.initializer}
 def onnx_eval64(Xin):
@@ -115,13 +117,13 @@ def onnx_eval64(Xin):
 _net64 = copy.deepcopy(net).double().eval()
 with torch.no_grad(): ref64 = _net64(torch.tensor((X.astype(np.float64) - x_mean) / x_std)).numpy().ravel() * y_std + y_mean
 scale = max(1.0, float(np.abs(yv).max()))
-err = float(np.abs(onnx_eval64(X) - ref64).max())          # difference caused by storing the folded weights as float32
+err = float(np.abs(onnx_eval64(X) - ref64).max())          # difference between the exported (folded) network and the trained one
 assert err <= 1e-3 * scale, f"ONNX export mismatch (float64 evaluation): {err}"
-# (2) onnxruntime (float32 arithmetic) -- informational only; large input means / small stds make float32 evaluation of raw inputs inexact
+# (2) onnxruntime on the double-precision file -- informational
 so = ort.SessionOptions(); so.intra_op_num_threads = 1; so.inter_op_num_threads = 1       # explicit thread count: no CPU-affinity warnings
 sess = ort.InferenceSession(model_path, sess_options=so, providers=["CPUExecutionProvider"])
-err_ort = float(np.abs(sess.run(None, {"input": X})[0].ravel() - ref64).max())
-print(f"  ONNX check: max |ONNX(float64) - torch| = {err:.3g} | onnxruntime float32 = {err_ort:.3g} (label scale {scale:.4g})", flush=True)
+err_ort = float(np.abs(sess.run(None, {"input": X.astype(np.float64)})[0].ravel() - ref64).max())
+print(f"  ONNX check: max |ONNX(float64) - torch| = {err:.3g} | onnxruntime = {err_ort:.3g} (label scale {scale:.4g})", flush=True)
 va_pred = onnx_eval64(Xva); tr_pred = onnx_eval64(Xtr)      # train/validation errors of the exported (float64-evaluated) network
 m = dict(scenario=SS, tag=TAG, hidden=HIDDEN, activation=ACTIVATION, n_rows=len(yv), n_train=len(ytr), n_val=len(yva), epochs=ep + 1,
          train_rmse=float(np.sqrt(np.mean((tr_pred - ytr) ** 2))), val_rmse=float(np.sqrt(np.mean((va_pred - yva) ** 2))),
