@@ -17,6 +17,8 @@
 module load pytorch/2.1.0           # check once interactively:  python -c "import torch, onnx, onnxruntime, sklearn, numpy"
                                     #   missing ones:  pip install --user onnx onnxruntime scikit-learn "numpy<2"   (torch 2.1 needs numpy 1.x)
 # alternative: use your conda env instead of the module (then it must contain all five packages):
+module load anaconda3               # makes `conda activate` work inside a batch job
 conda activate pyomo-binder
+which python
 cd /storage/project/r-jscott319-0/jyang872/decomp
 python train_nn.py ${SLURM_ARRAY_TASK_ID}

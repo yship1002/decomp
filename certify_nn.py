@@ -19,6 +19,7 @@ import os, sys, json, time, importlib
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ["PATH"] = os.path.dirname(sys.executable) + os.pathsep + os.environ["PATH"]
+import torch
 import numpy as np, onnx
 from onnx import numpy_helper
 import pyomo.environ as pyo

@@ -14,6 +14,8 @@
 # Submit AFTER train_nn.sbatch has finished, or chain it:
 #   JOB=$(sbatch --parsable train_nn.sbatch) && sbatch --dependency=afterok:$JOB certify_nn.sbatch
 # Needs pyomo, omlt, onnx, numpy and the BARON executable + license (paths in certify_nn.py). Same environment as sample_boxes.sbatch.
+module load pytorch/2.1.0            # makes `conda activate` work inside a batch job (otherwise: CondaError, and the system python has no onnx)
 conda activate pyomo-binder
+which python                        # shows in the .out file which interpreter is used
 cd /storage/project/r-jscott319-0/jyang872/decomp
 python certify_nn.py ${SLURM_ARRAY_TASK_ID}
