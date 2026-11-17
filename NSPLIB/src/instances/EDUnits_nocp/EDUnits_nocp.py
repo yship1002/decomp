@@ -217,7 +217,7 @@ def const_model(returnPyomoModel: bool = False):
     # =========================================================================
     
     # Unit-local decision variables
-    pm.current       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1,200), initialize={1:20, 2:0.1, 3:35})
+    pm.current       = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(1,200), initialize={1:20, 2:1, 3:35})
     pm.flowSplit            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0, 1), initialize={1:0.85, 2:0.37, 3:0})
     pm.memLength            = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.96, 2:0.01, 3:1.3})
     pm.memWidth             = pyo.Var(pm.units, within=pyo.NonNegativeReals, bounds=(0.01, 10), initialize={1:0.2, 2:0.11, 3:0.1})

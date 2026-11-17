@@ -31,8 +31,8 @@ from pyomo.opt import TerminationCondition as TC
 
 # ============================== SETTINGS (edit these) ==============================
 PROBLEM_MODULE = "NSPLIB.src.instances.EDUnits_nocp.EDUnits_nocp"
-BARON_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron"            # cluster: path of the baron executable (None -> found on PATH)
-BARON_LIC = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baronlice.txt"    # cluster: path of the license file (None -> default)
+BARON_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baron"            # cluster: path of the baron executable (None -> found on PATH)
+BARON_LIC = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baronlice.txt"    # cluster: path of the license file (None -> default)
 BARON_OPTIONS = {"MaxTime": 30, "EpsR": 1e-2, "EpsA": 1e-6}   # time limit (s) per subproblem, 1% relative gap
 OUT_DIR = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/decomp_srun"                             # relative to this file's folder (or absolute)
 # The 6 free dimensions (N6, W6, N8, W8, N2, W2) and the interval (lo, hi) each one spans. NONE of them is fixed:

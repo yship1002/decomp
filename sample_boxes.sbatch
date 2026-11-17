@@ -7,7 +7,7 @@
 #SBATCH -t01:00:00                        # 64 boxes x 5 s BARON limit = ~6 min worst case (raise if you raise MaxTime / MAX_BOXES)
 #SBATCH -qinferno
 #SBATCH --signal=TERM@60
-#SBATCH --output=/storage/project/r-jscott319-0/jyang872/CrappySolver_srun/%x_%A_%a.out
+#SBATCH --output=/storage/project/r-jscott319-0/jyang872/decomp_srun/%x_%A_%a.out
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=jyang872@gatech.edu
 
