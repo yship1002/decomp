@@ -99,11 +99,30 @@ try:      # newer PyTorch: force the legacy exporter so layers are plain Gemm no
 except TypeError:   # older PyTorch (e.g. 2.1) has no `dynamo` argument; its default exporter is already the legacy one
     torch.onnx.export(ex, torch.zeros(1, X.shape[1]), model_path, **_kw)
 onnx.checker.check_model(onnx.load(model_path))
-sess = ort.InferenceSession(model_path)
-with torch.no_grad(): ref = net(torch.tensor((X - x_mean) / x_std)).numpy().ravel() * y_std + y_mean
-err = float(np.abs(sess.run(None, {"input": X})[0].ravel() - ref).max())
-assert err <= 1e-3 * max(1.0, float(np.abs(yv).max())), f"ONNX export mismatch: {err}"
-va_pred = sess.run(None, {"input": Xva})[0].ravel(); tr_pred = sess.run(None, {"input": Xtr})[0].ravel()
+# --- check the exported file ---
+# (1) float64 evaluation of the ONNX network exactly as the solver will see it (its float32 weights, evaluated in double precision)
+from onnx import numpy_helper
+_g = onnx.load(model_path).graph; _W = {t.name: numpy_helper.to_array(t).astype(np.float64) for t in _g.initializer}
+def onnx_eval64(Xin):
+    h = Xin.astype(np.float64)
+    for nd in _g.node:
+        if nd.op_type == "Gemm":
+            tb = next((a.i for a in nd.attribute if a.name == "transB"), 0); Wm = _W[nd.input[1]]; h = h @ (Wm.T if tb else Wm) + _W[nd.input[2]]
+        elif nd.op_type == "Sigmoid": h = 1.0 / (1.0 + np.exp(-h))
+        elif nd.op_type == "Relu": h = np.maximum(h, 0.0)
+        else: raise RuntimeError(f"unexpected ONNX node {nd.op_type}")
+    return h.ravel()
+_net64 = copy.deepcopy(net).double().eval()
+with torch.no_grad(): ref64 = _net64(torch.tensor((X.astype(np.float64) - x_mean) / x_std)).numpy().ravel() * y_std + y_mean
+scale = max(1.0, float(np.abs(yv).max()))
+err = float(np.abs(onnx_eval64(X) - ref64).max())          # difference caused by storing the folded weights as float32
+assert err <= 1e-3 * scale, f"ONNX export mismatch (float64 evaluation): {err}"
+# (2) onnxruntime (float32 arithmetic) -- informational only; large input means / small stds make float32 evaluation of raw inputs inexact
+so = ort.SessionOptions(); so.intra_op_num_threads = 1; so.inter_op_num_threads = 1       # explicit thread count: no CPU-affinity warnings
+sess = ort.InferenceSession(model_path, sess_options=so, providers=["CPUExecutionProvider"])
+err_ort = float(np.abs(sess.run(None, {"input": X})[0].ravel() - ref64).max())
+print(f"  ONNX check: max |ONNX(float64) - torch| = {err:.3g} | onnxruntime float32 = {err_ort:.3g} (label scale {scale:.4g})", flush=True)
+va_pred = onnx_eval64(Xva); tr_pred = onnx_eval64(Xtr)      # train/validation errors of the exported (float64-evaluated) network
 m = dict(scenario=SS, tag=TAG, hidden=HIDDEN, activation=ACTIVATION, n_rows=len(yv), n_train=len(ytr), n_val=len(yva), epochs=ep + 1,
          train_rmse=float(np.sqrt(np.mean((tr_pred - ytr) ** 2))), val_rmse=float(np.sqrt(np.mean((va_pred - yva) ** 2))),
          val_mean_rel_err=float(np.mean(np.abs(va_pred - yva) / np.abs(yva))), label_std=float(yv.std()), onnx_max_err=err, model=model_path)
