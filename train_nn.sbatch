@@ -16,6 +16,8 @@
 # Needs torch (CPU is enough), onnx, onnxruntime, scikit-learn, numpy. Training does not need pyomo/BARON.
 module load pytorch/2.1.0           # check once interactively:  python -c "import torch, onnx, onnxruntime, sklearn, numpy"
                                     #   missing ones:  pip install --user onnx onnxruntime scikit-learn "numpy<2"   (torch 2.1 needs numpy 1.x)
+which python; python --version
+python -c "import onnxruntime; print('onnxruntime', onnxruntime.__version__)"
 # alternative: use your conda env instead of the module (then it must contain all five packages):
 conda activate pyomo-binder
 cd /storage/project/r-jscott319-0/jyang872/decomp
