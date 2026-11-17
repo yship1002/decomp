@@ -1,5 +1,5 @@
 """
-Whole pipeline for ONE scenario of EDUnits_nocp in one file:   sample 64 boxes (BARON)  ->  train (4,4) NN (CPU)  ->  certify NN (BARON).
+Whole pipeline for ONE scenario of EDUnits_nocp in one file:   sample boxes (BARON)  ->  train (4,4) NN (CPU)  ->  certify NN (BARON).
 One SLURM array task = one scenario; the three scenarios run independently.
 
 Usage:   python pipeline.py <task_id>        task_id 0,1,2 -> scenario 1,2,3   (or set SLURM_ARRAY_TASK_ID)
@@ -43,18 +43,20 @@ BARON_LIC = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/b
 RUN_SAMPLE, RUN_TRAIN, RUN_CERTIFY = True, True, True
 
 # --- TIME LIMITS (seconds) ---
-SAMPLE_TIME = 60                    # stage 1: BARON limit for EACH of the 64 box solves (worst case 64 x SAMPLE_TIME in total)
+SAMPLE_TIME = 60                    # stage 1: BARON limit for EACH box solve (worst case number of boxes x SAMPLE_TIME in total)
 TRAIN_TIME  = None                  # stage 2: wall-clock limit for training (None = no limit; training stops earlier by EPOCHS / PATIENCE)
 CERT_TIME   = 600                   # stage 3: BARON limit for the certification solve
-# keep the #SBATCH -t in pipeline.sbatch above  64 x SAMPLE_TIME + TRAIN_TIME + CERT_TIME  plus a few minutes for model builds
+# keep the #SBATCH -t in pipeline.sbatch above  (number of boxes) x SAMPLE_TIME + TRAIN_TIME + CERT_TIME  plus a few minutes for model builds
 
 # --- stage 1: sampling ---
 SAMPLE_OPTIONS = {"MaxTime": SAMPLE_TIME, "EpsR": 1e-2, "EpsA": 1e-6, "TDo": 0, "AbsConFeasTol": 1e-2}     # BARON limit (s) and gap per box
-# the 6 free first-stage coordinates and the interval each spans; every interval is split into (lo,mid),(mid,hi) -> 2^6 = 64 boxes
+# the 6 free first-stage coordinates and the interval each spans; each interval is split into BOXES_PER_DIM equal pieces
 RANGES = {"N6": (1e-5, 10.0), "W6": (1e-5, 500.0), "N8": (1e-5, 10.0), "W8": (1e-5, 500.0),
           "N2": (1e-5, 0.0635099), "W2": (117.907, 123.446)}      # N2, W2: range allowed by the stage-1 constraints
 COORD_VARS = {"N6": "molNStream6", "W6": "molWStream6", "N8": "molNStream8", "W8": "molWStream8", "N2": "molNStream2", "W2": "molWStream2"}
-MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all 64
+BOXES_PER_DIM = 4                   # number of equal pieces per free dimension: one int for all six, or a dict such as {"N6": 3, "W6": 2, "N8": 3, "W8": 2, "N2": 1, "W2": 1}
+                                    # total boxes = product over the six dimensions (2 each -> 2^6 = 64; 3 each -> 729). Changing it needs a fresh <instance>_<s>.jsonl.
+MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all boxes
 
 # --- stage 2: training ---
 HIDDEN     = [4, 4]
@@ -86,8 +88,11 @@ DATA_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.jsonl")      # stage 1 outp
 MODEL_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.onnx")       # stage 2 output: trained network
 CERT_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.json")       # stage 3 output: certification result
 in_names = [f"mol{x}Stream{k}" for k in SCENARIO_STREAMS[SS] for x in "NW"]
+_names = list(RANGES)
+N_BOXES = int(np.prod([int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in _names]))
+if MAX_BOXES: N_BOXES = min(N_BOXES, MAX_BOXES)
 T_START = time.time()
-print(f"scenario {SS}: time limits -> sampling {SAMPLE_TIME}s per box (max {64 * SAMPLE_TIME / 60:.0f} min), training {TRAIN_TIME or 'no limit'}, certification {CERT_TIME}s", flush=True)
+print(f"scenario {SS}: time limits -> sampling {SAMPLE_TIME}s per box (max {N_BOXES * SAMPLE_TIME / 60:.0f} min for {N_BOXES} boxes), training {TRAIN_TIME or 'no limit'}, certification {CERT_TIME}s", flush=True)
 def num(v): return None if v is None or not np.isfinite(v) else float(v)
 
 
@@ -118,19 +123,25 @@ def stage_sample():
     if BARON_LIC: opts["LicName"] = BARON_LIC
     baron = baron_solver()
     names = list(RANGES)
-    lo = np.array([RANGES[n][0] for n in names]); hi = np.array([RANGES[n][1] for n in names]); mid = 0.5 * (lo + hi)
-    boxes = list(itertools.product(range(2), repeat=len(names)))      # 0 = (lo, mid), 1 = (mid, hi) per dimension
+    nb = [int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in names]; assert all(k >= 1 for k in nb)
+    edges = [np.linspace(RANGES[n][0], RANGES[n][1], k + 1) for n, k in zip(names, nb)]       # piece j of dimension d = (edges[d][j], edges[d][j+1])
+    boxes = list(itertools.product(*[range(k) for k in nb]))
     if MAX_BOXES: boxes = boxes[:MAX_BOXES]
     done = set()
     if os.path.exists(DATA_FILE):                                     # resume: skip boxes already written
         for line in open(DATA_FILE):
-            try: done.add(tuple(json.loads(line)["box"]))
-            except Exception: pass
+            try: rec0 = json.loads(line)
+            except Exception: continue
+            ix = tuple(rec0["box"])
+            ok_grid = len(ix) == len(names) and all(0 <= ix[d] < nb[d] and np.isclose(rec0["lo"][d], edges[d][ix[d]], rtol=1e-9, atol=1e-12)
+                                                    and np.isclose(rec0["hi"][d], edges[d][ix[d] + 1], rtol=1e-9, atol=1e-12) for d in range(len(names)))
+            if not ok_grid: sys.exit(f"{DATA_FILE} was written with a different box grid than BOXES_PER_DIM={BOXES_PER_DIM}; move or delete it and run again")
+            done.add(ix)
     print(f"[sample] scenario {SS}: {len(boxes)} boxes, {len(done)} already in {DATA_FILE}", flush=True)
     t_all = time.time(); counts = {}
     for k, idx in enumerate(boxes):
         if idx in done: continue
-        L = [lo[d] if idx[d] == 0 else mid[d] for d in range(6)]; U = [mid[d] if idx[d] == 0 else hi[d] for d in range(6)]
+        L = [edges[d][idx[d]] for d in range(6)]; U = [edges[d][idx[d] + 1] for d in range(6)]
         for d, n in enumerate(names):
             v = m.y[COORD_VARS[n]]; v.setlb(L[d]); v.setub(U[d]); v.set_value(0.5 * (L[d] + U[d]))
         status, label, ltype, ub, yv, xv = "error", None, None, None, None, None
