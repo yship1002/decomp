@@ -127,14 +127,8 @@ def stage_sample():
     m.f_obj = pyo.Objective(expr=sm.obj_expr[SS], sense=pyo.minimize)
     assert SAMPLE_SOLVER in ("baron", "ipopt")
     if SAMPLE_SOLVER == "ipopt":
-        opts = dict(IPOPT_OPTIONS); exe = IPOPT_EXE
-        if exe and os.path.isdir(exe):
-            exe = next((c for c in (os.path.join(exe, "ipopt"), os.path.join(exe, "bin", "ipopt")) if os.path.isfile(c)), None)
-            if exe is None: sys.exit(f"no ipopt executable found inside {IPOPT_EXE} (tried ipopt and bin/ipopt)")
-        baron = pyo.SolverFactory("ipopt") if exe else pyo.SolverFactory("ipopt")
-        print(f"[sample] ipopt executable: {exe or 'from PATH'}", flush=True)
-        if not baron.available(exception_flag=False):
-            sys.exit("Pyomo cannot find the ipopt executable in the active env (searched PATH incl. " + os.path.dirname(sys.executable) + "). Install it there: conda install -c conda-forge ipopt   (or set IPOPT_EXE)")
+        opts = dict(IPOPT_OPTIONS); baron = pyo.SolverFactory("ipopt")                 # ipopt must be on PATH
+        if not baron.available(exception_flag=False): sys.exit("Pyomo cannot find the ipopt executable on PATH")
     else:
         opts = dict(SAMPLE_OPTIONS)
         if BARON_LIC: opts["LicName"] = BARON_LIC
