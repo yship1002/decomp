@@ -4,7 +4,7 @@
 #SBATCH --account=gts-jscott319
 #SBATCH -N1 --ntasks-per-node=1
 #SBATCH --mem-per-cpu=16G
-#SBATCH -t02:00:00                        # sampling <= 64 x 30 s (~32 min) + training (minutes) + certification 600 s + model builds
+#SBATCH -t08:00:00                        # sampling <= 64 x 30 s (~32 min) + training (minutes) + certification 600 s + model builds
 #SBATCH -qinferno
 #SBATCH --signal=TERM@60
 #SBATCH --output=/storage/project/r-jscott319-0/jyang872/decomp_srun/%x_%A_%a.out

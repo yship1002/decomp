@@ -17,6 +17,7 @@ import os, sys, json, time, copy, itertools, importlib
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ["PATH"] = os.path.dirname(sys.executable) + os.pathsep + os.environ["PATH"]
+import signal; signal.signal(signal.SIGTERM, lambda *a: sys.exit('SIGTERM received (walltime nearly over): stopping; rerun to resume'))
 import numpy as np
 import torch, torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
@@ -49,12 +50,18 @@ CERT_TIME   = 600                   # stage 3: BARON limit for the certification
 # keep the #SBATCH -t in pipeline.sbatch above  (number of boxes) x SAMPLE_TIME + TRAIN_TIME + CERT_TIME  plus a few minutes for model builds
 
 # --- stage 1: sampling ---
+SAMPLE_SOLVER = "ipopt"             # "baron" (global; labels = proven lower bound / optimum) or "ipopt" (fast local solve from the box midpoint; label = local optimum, NOT a global value)
+IPOPT_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/Ipopt/ipopt"    # executable, or the install folder (bin/ipopt is looked up inside); None -> found on PATH
+# IPOPT options for each box solve (any IPOPT option name works here):
+#   tol = overall convergence tolerance (scaled NLP error), constr_viol_tol = max constraint violation, acceptable_tol = looser fallback tolerance,
+#   max_iter = iteration limit, max_cpu_time = seconds per box
+IPOPT_OPTIONS = {"tol": 1e-6, "constr_viol_tol": 1e-2, "acceptable_tol": 1e-4, "max_iter": 3000, "max_cpu_time": SAMPLE_TIME, "print_level": 0}
 SAMPLE_OPTIONS = {"MaxTime": SAMPLE_TIME, "EpsR": 1e-2, "EpsA": 1e-6, "TDo": 0, "AbsConFeasTol": 1e-2}     # BARON limit (s) and gap per box
 # the 6 free first-stage coordinates and the interval each spans; each interval is split into BOXES_PER_DIM equal pieces
 RANGES = {"N6": (1e-5, 10.0), "W6": (1e-5, 500.0), "N8": (1e-5, 10.0), "W8": (1e-5, 500.0),
           "N2": (1e-5, 0.0635099), "W2": (117.907, 123.446)}      # N2, W2: range allowed by the stage-1 constraints
 COORD_VARS = {"N6": "molNStream6", "W6": "molWStream6", "N8": "molNStream8", "W8": "molWStream8", "N2": "molNStream2", "W2": "molWStream2"}
-BOXES_PER_DIM = 4                   # number of equal pieces per free dimension: one int for all six, or a dict such as {"N6": 3, "W6": 2, "N8": 3, "W8": 2, "N2": 1, "W2": 1}
+BOXES_PER_DIM = 3                   # number of equal pieces per free dimension: one int for all six, or a dict such as {"N6": 3, "W6": 2, "N8": 3, "W8": 2, "N2": 1, "W2": 1}
                                     # total boxes = product over the six dimensions (2 each -> 2^6 = 64; 3 each -> 729). Changing it needs a fresh <instance>_<s>.jsonl.
 MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all boxes
 
@@ -119,9 +126,21 @@ def baron_solver():
 def stage_sample():
     sm, m = build_model(); all_y = list(sm.y_set)
     m.f_obj = pyo.Objective(expr=sm.obj_expr[SS], sense=pyo.minimize)
-    opts = dict(SAMPLE_OPTIONS)
-    if BARON_LIC: opts["LicName"] = BARON_LIC
-    baron = baron_solver()
+    assert SAMPLE_SOLVER in ("baron", "ipopt")
+    if SAMPLE_SOLVER == "ipopt":
+        opts = dict(IPOPT_OPTIONS); exe = IPOPT_EXE
+        if exe and os.path.isdir(exe):
+            exe = next((c for c in (os.path.join(exe, "ipopt"), os.path.join(exe, "bin", "ipopt")) if os.path.isfile(c)), None)
+            if exe is None: sys.exit(f"no ipopt executable found inside {IPOPT_EXE} (tried ipopt and bin/ipopt)")
+        baron = pyo.SolverFactory("ipopt", executable=exe) if exe else pyo.SolverFactory("ipopt")
+        print(f"[sample] ipopt executable: {exe or 'from PATH'}", flush=True)
+        if not baron.available(exception_flag=False):
+            sys.exit("Pyomo cannot find the ipopt executable in the active env (searched PATH incl. " + os.path.dirname(sys.executable) + "). Install it there: conda install -c conda-forge ipopt   (or set IPOPT_EXE)")
+    else:
+        opts = dict(SAMPLE_OPTIONS)
+        if BARON_LIC: opts["LicName"] = BARON_LIC
+        baron = baron_solver()
+    print(f"[sample] solver: {SAMPLE_SOLVER}", flush=True)
     names = list(RANGES)
     nb = [int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in names]; assert all(k >= 1 for k in nb)
     edges = [np.linspace(RANGES[n][0], RANGES[n][1], k + 1) for n, k in zip(names, nb)]       # piece j of dimension d = (edges[d][j], edges[d][j+1])
@@ -136,7 +155,7 @@ def stage_sample():
             ok_grid = len(ix) == len(names) and all(0 <= ix[d] < nb[d] and np.isclose(rec0["lo"][d], edges[d][ix[d]], rtol=1e-9, atol=1e-12)
                                                     and np.isclose(rec0["hi"][d], edges[d][ix[d] + 1], rtol=1e-9, atol=1e-12) for d in range(len(names)))
             if not ok_grid: sys.exit(f"{DATA_FILE} was written with a different box grid than BOXES_PER_DIM={BOXES_PER_DIM}; move or delete it and run again")
-            done.add(ix)
+            if not str(rec0.get("status", "")).startswith("error"): done.add(ix)      # error boxes (e.g. missing /tmp) are retried
     print(f"[sample] scenario {SS}: {len(boxes)} boxes, {len(done)} already in {DATA_FILE}", flush=True)
     t_all = time.time(); counts = {}
     for k, idx in enumerate(boxes):
@@ -152,7 +171,7 @@ def stage_sample():
             snap = lambda: ({n: float(m.y[n].value) for n in all_y},
                             {v.name: float(v.value) for v in m.component_data_objects(pyo.Var) if v.value is not None and not v.name.startswith("y[")})
             if tc in (TC.optimal, TC.globallyOptimal, TC.locallyOptimal):
-                m.solutions.load_from(r); status, ltype = "optimal", "optimal"; label = float(pyo.value(m.f_obj)); yv, xv = snap()
+                m.solutions.load_from(r); status, ltype = "optimal", ("optimal" if SAMPLE_SOLVER == "baron" else "ipopt_local"); label = float(pyo.value(m.f_obj)); yv, xv = snap()
             elif tc in (TC.infeasible, TC.invalidProblem):
                 status = "infeasible"
             else:
