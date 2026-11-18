@@ -56,16 +56,17 @@ SAMPLE_SOLVER = "ipopt"             # "baron" (global; labels = proven lower bou
 #   max_iter = iteration limit, max_cpu_time = seconds per box
 IPOPT_OPTIONS = {"tol": 1e-6, "constr_viol_tol": 1e-2, "acceptable_tol": 1e-4, "max_iter": 3000, "max_cpu_time": SAMPLE_TIME, "print_level": 0}
 SAMPLE_OPTIONS = {"MaxTime": SAMPLE_TIME, "EpsR": 1e-2, "EpsA": 1e-6, "TDo": 0, "AbsConFeasTol": 1e-2}     # BARON limit (s) and gap per box
-# the 6 free first-stage coordinates and the interval each spans; each interval is split into BOXES_PER_DIM equal pieces
-RANGES = {"N6": (1e-5, 10.0), "W6": (1e-5, 500.0), "N8": (1e-5, 10.0), "W8": (1e-5, 500.0),
-          "N2": (1e-5, 0.0635099), "W2": (117.907, 123.446)}      # N2, W2: range allowed by the stage-1 constraints
-COORD_VARS = {"N6": "molNStream6", "W6": "molWStream6", "N8": "molNStream8", "W8": "molWStream8", "N2": "molNStream2", "W2": "molWStream2"}
-BOXES_PER_DIM = 3                   # number of equal pieces per free dimension: one int for all six, or a dict such as {"N6": 3, "W6": 2, "N8": 3, "W8": 2, "N2": 1, "W2": 1}
+# Boxes are cut ONLY over the 6 first-stage variables that enter this scenario's problem (molN, molW of its three streams, see SCENARIO_STREAMS):
+#   scenario 1 -> streams 1,2,3 | scenario 2 -> streams 4,5,6 | scenario 3 -> streams 5,7,8.   The other 10 first-stage variables are not boxed.
+# RANGES: interval spanned by each first-stage variable = its ORIGINAL bounds in the problem (molN in [1e-5, 10], molW in [1e-5, 500]);
+# each interval is split into BOXES_PER_DIM equal pieces.
+RANGES = {f"mol{x}Stream{k}": ((1e-5, 10.0) if x == "N" else (1e-5, 500.0)) for k in range(1, 9) for x in "NW"}
+BOXES_PER_DIM = 5                   # number of equal pieces per boxed dimension: one int for all six, or a dict keyed by variable name, e.g. {"molNStream1": 2, "molWStream1": 4, ...}
                                     # total boxes = product over the six dimensions (2 each -> 2^6 = 64; 3 each -> 729). Changing it needs a fresh <instance>_<s>.jsonl.
 MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all boxes
 
 # --- stage 2: training ---
-HIDDEN     = [4, 4]
+HIDDEN     = [8, 8]
 ACTIVATION = "sigmoid"              # "sigmoid" (OMLT full-space NLP) or "relu" (OMLT big-M MILP)
 TAG        = "b64h4sig"
 LR, BATCH_SIZE, EPOCHS, PATIENCE, VAL_FRAC, SEED = 1e-3, 16, 2000, 200, 0.2, 0
@@ -94,7 +95,7 @@ DATA_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.jsonl")      # stage 1 outp
 MODEL_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.onnx")       # stage 2 output: trained network
 CERT_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.json")       # stage 3 output: certification result
 in_names = [f"mol{x}Stream{k}" for k in SCENARIO_STREAMS[SS] for x in "NW"]
-_names = list(RANGES)
+_names = list(in_names)                                           # the 6 boxed variables of this scenario
 N_BOXES = int(np.prod([int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in _names]))
 if MAX_BOXES: N_BOXES = min(N_BOXES, MAX_BOXES)
 T_START = time.time()
@@ -134,7 +135,7 @@ def stage_sample():
         if BARON_LIC: opts["LicName"] = BARON_LIC
         baron = baron_solver()
     print(f"[sample] solver: {SAMPLE_SOLVER}", flush=True)
-    names = list(RANGES)
+    names = list(in_names)                                            # the 6 boxed variables of this scenario (dimension order = in_names)
     nb = [int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in names]; assert all(k >= 1 for k in nb)
     edges = [np.linspace(RANGES[n][0], RANGES[n][1], k + 1) for n, k in zip(names, nb)]       # piece j of dimension d = (edges[d][j], edges[d][j+1])
     boxes = list(itertools.product(*[range(k) for k in nb]))
@@ -155,7 +156,7 @@ def stage_sample():
         if idx in done: continue
         L = [edges[d][idx[d]] for d in range(6)]; U = [edges[d][idx[d] + 1] for d in range(6)]
         for d, n in enumerate(names):
-            v = m.y[COORD_VARS[n]]; v.setlb(L[d]); v.setub(U[d]); v.set_value(0.5 * (L[d] + U[d]))
+            v = m.y[n]; v.setlb(L[d]); v.setub(U[d]); v.set_value(0.5 * (L[d] + U[d]))
         status, label, ltype, ub, yv, xv = "error", None, None, None, None, None
         t0 = time.time()
         try:
@@ -178,7 +179,7 @@ def stage_sample():
             if ub is None and status == "optimal": ub = label
         except Exception as e:
             status = "error:" + type(e).__name__
-        rec = dict(scenario=SS, box=list(idx), lo=[float(a) for a in L], hi=[float(a) for a in U], status=status, label=num(label),
+        rec = dict(scenario=SS, vars=names, box=list(idx), lo=[float(a) for a in L], hi=[float(a) for a in U], status=status, label=num(label),
                    label_type=ltype, upper_bound=num(ub), seconds=round(time.time() - t0, 2), y=yv, x=xv)
         with open(DATA_FILE, "a") as fh:                              # write each finished box immediately
             fh.write(json.dumps(rec) + "\n"); fh.flush(); os.fsync(fh.fileno())

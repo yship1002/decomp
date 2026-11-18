@@ -26,9 +26,9 @@ from omlt.neuralnet import ReluBigMFormulation, FullSpaceSmoothNNFormulation
 
 # ============================== SETTINGS (edit these) ==============================
 PROBLEM_MODULE = "NSPLIB.src.instances.EDUnits_nocp.EDUnits_nocp"
-DIR            = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/decomp_srun"        # folder with the networks and certification files
-MODEL_TEMPLATE = "model_s{s}_b64h4sig.onnx"                          # {s} = scenario number
-CERT_TEMPLATE  = "cert_b64h4sig_baron_scenario{s}.json"
+DIR            = os.path.dirname(os.path.abspath(__file__))        # folder with the networks and certification files (= this project folder)
+MODEL_TEMPLATE = "EDUnits_nocp_{s}.onnx"                          # {s} = scenario number
+CERT_TEMPLATE  = "EDUnits_nocp_{s}.json"
 OUT_NAME       = "overall_lower_bound.json"
 SCENARIOS      = [1, 2, 3]
 ACTIVATION     = "sigmoid"          # "sigmoid" or "relu"; must match how the networks were trained
@@ -37,8 +37,8 @@ INPUT_BOX      = "original"         # "original": y ranges over the instance's O
 TIME_LIMIT     = 600                # seconds
 REL_GAP        = 1e-2
 TEE            = False
-BARON_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baron"            # None -> found on PATH
-BARON_LIC = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baronlice.txt"    # None -> default
+BARON_EXE = None                    # None -> found on PATH
+BARON_LIC = None                    # None -> default license
 SCENARIO_STREAMS = {1: [1, 2, 3], 2: [4, 5, 6], 3: [5, 7, 8]}      # NN inputs: molN, molW of each stream (stream 5 is shared by scenarios 2 and 3)
 # ====================================================================================
 
