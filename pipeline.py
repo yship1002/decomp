@@ -51,7 +51,6 @@ CERT_TIME   = 600                   # stage 3: BARON limit for the certification
 
 # --- stage 1: sampling ---
 SAMPLE_SOLVER = "ipopt"             # "baron" (global; labels = proven lower bound / optimum) or "ipopt" (fast local solve from the box midpoint; label = local optimum, NOT a global value)
-IPOPT_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/Ipopt/ipopt"    # executable, or the install folder (bin/ipopt is looked up inside); None -> found on PATH
 # IPOPT options for each box solve (any IPOPT option name works here):
 #   tol = overall convergence tolerance (scaled NLP error), constr_viol_tol = max constraint violation, acceptable_tol = looser fallback tolerance,
 #   max_iter = iteration limit, max_cpu_time = seconds per box
@@ -132,7 +131,7 @@ def stage_sample():
         if exe and os.path.isdir(exe):
             exe = next((c for c in (os.path.join(exe, "ipopt"), os.path.join(exe, "bin", "ipopt")) if os.path.isfile(c)), None)
             if exe is None: sys.exit(f"no ipopt executable found inside {IPOPT_EXE} (tried ipopt and bin/ipopt)")
-        baron = pyo.SolverFactory("ipopt", executable=exe) if exe else pyo.SolverFactory("ipopt")
+        baron = pyo.SolverFactory("ipopt") if exe else pyo.SolverFactory("ipopt")
         print(f"[sample] ipopt executable: {exe or 'from PATH'}", flush=True)
         if not baron.available(exception_flag=False):
             sys.exit("Pyomo cannot find the ipopt executable in the active env (searched PATH incl. " + os.path.dirname(sys.executable) + "). Install it there: conda install -c conda-forge ipopt   (or set IPOPT_EXE)")
