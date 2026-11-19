@@ -56,13 +56,14 @@ SAMPLE_SOLVER = "ipopt"             # "baron" (global; labels = proven lower bou
 #   max_iter = iteration limit, max_cpu_time = seconds per box
 IPOPT_OPTIONS = {"tol": 1e-6, "constr_viol_tol": 1e-2, "acceptable_tol": 1e-4, "max_iter": 3000, "max_cpu_time": SAMPLE_TIME, "print_level": 0}
 SAMPLE_OPTIONS = {"MaxTime": SAMPLE_TIME, "EpsR": 1e-2, "EpsA": 1e-6, "TDo": 0, "AbsConFeasTol": 1e-2}     # BARON limit (s) and gap per box
-# Boxes are cut ONLY over the 6 first-stage variables that enter this scenario's problem (molN, molW of its three streams, see SCENARIO_STREAMS):
-#   scenario 1 -> streams 1,2,3 | scenario 2 -> streams 4,5,6 | scenario 3 -> streams 5,7,8.   The other 10 first-stage variables are not boxed.
+# Boxes are cut ONLY over the 4 free first-stage variables of this scenario's ED unit = molN, molW of its two OUTLET streams (dilute, concentrate; see SCENARIO_OUTLETS):
+#   scenario 1 -> streams 2,3 | scenario 2 -> streams 5,6 | scenario 3 -> streams 7,8.
+#   The unit's inlet stream (1, 4, 5) is NOT boxed: unit mass + component balances give inlet = dilute outlet + concentrate outlet (N and W), so the solver determines it.
 # RANGES: interval spanned by each first-stage variable = its ORIGINAL bounds in the problem (molN in [1e-5, 10], molW in [1e-5, 500]);
 # each interval is split into BOXES_PER_DIM equal pieces.
 RANGES = {f"mol{x}Stream{k}": ((1e-5, 10.0) if x == "N" else (1e-5, 500.0)) for k in range(1, 9) for x in "NW"}
-BOXES_PER_DIM = 5                   # number of equal pieces per boxed dimension: one int for all six, or a dict keyed by variable name, e.g. {"molNStream1": 2, "molWStream1": 4, ...}
-                                    # total boxes = product over the six dimensions (2 each -> 2^6 = 64; 3 each -> 729). Changing it needs a fresh <instance>_<s>.jsonl.
+BOXES_PER_DIM = 10                  # number of equal pieces per boxed dimension: one int for all four, or a dict keyed by variable name, e.g. {"molNStream2": 2, "molWStream2": 4, ...}
+                                    # total boxes = product over the four dimensions (10 each -> 10^4 = 10000). Changing it needs a fresh <instance>_<s>.jsonl.
 MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all boxes
 
 # --- stage 2: training ---
@@ -79,7 +80,7 @@ CERT_BOX    = "original"            # y over which f_s - NN_s is minimised: "ori
                                     #                                       "training" = only the box spanned by the training inputs
 TEE         = False                 # True: show the solver's live log
 
-SCENARIO_STREAMS = {1: [1, 2, 3], 2: [4, 5, 6], 3: [5, 7, 8]}     # NN inputs: molN, molW of each stream (stream 5 is shared)
+SCENARIO_OUTLETS = {1: [2, 3], 2: [5, 6], 3: [7, 8]}     # NN inputs and boxed variables: molN, molW of the dilute and concentrate outlet stream of the unit
 # ====================================================================================
 
 tid = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("SLURM_ARRAY_TASK_ID", "-1"))
@@ -94,8 +95,8 @@ INSTANCE   = PROBLEM_MODULE.split(".")[-1]                        # "EDUnits_noc
 DATA_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.jsonl")      # stage 1 output: sampled boxes
 MODEL_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.onnx")       # stage 2 output: trained network
 CERT_FILE  = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.json")       # stage 3 output: certification result
-in_names = [f"mol{x}Stream{k}" for k in SCENARIO_STREAMS[SS] for x in "NW"]
-_names = list(in_names)                                           # the 6 boxed variables of this scenario
+in_names = [f"mol{x}Stream{k}" for k in SCENARIO_OUTLETS[SS] for x in "NW"]
+_names = list(in_names)                                           # the 4 boxed variables of this scenario
 N_BOXES = int(np.prod([int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in _names]))
 if MAX_BOXES: N_BOXES = min(N_BOXES, MAX_BOXES)
 T_START = time.time()
@@ -135,7 +136,7 @@ def stage_sample():
         if BARON_LIC: opts["LicName"] = BARON_LIC
         baron = baron_solver()
     print(f"[sample] solver: {SAMPLE_SOLVER}", flush=True)
-    names = list(in_names)                                            # the 6 boxed variables of this scenario (dimension order = in_names)
+    names = list(in_names)                                            # the 4 boxed variables of this scenario (dimension order = in_names)
     nb = [int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in names]; assert all(k >= 1 for k in nb)
     edges = [np.linspace(RANGES[n][0], RANGES[n][1], k + 1) for n, k in zip(names, nb)]       # piece j of dimension d = (edges[d][j], edges[d][j+1])
     boxes = list(itertools.product(*[range(k) for k in nb]))
@@ -154,7 +155,7 @@ def stage_sample():
     t_all = time.time(); counts = {}
     for k, idx in enumerate(boxes):
         if idx in done: continue
-        L = [edges[d][idx[d]] for d in range(6)]; U = [edges[d][idx[d] + 1] for d in range(6)]
+        L = [edges[d][idx[d]] for d in range(len(names))]; U = [edges[d][idx[d] + 1] for d in range(len(names))]
         for d, n in enumerate(names):
             v = m.y[n]; v.setlb(L[d]); v.setub(U[d]); v.set_value(0.5 * (L[d] + U[d]))
         status, label, ltype, ub, yv, xv = "error", None, None, None, None, None

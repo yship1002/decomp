@@ -39,7 +39,9 @@ REL_GAP        = 1e-2
 TEE            = False
 BARON_EXE = None                    # None -> found on PATH
 BARON_LIC = None                    # None -> default license
-SCENARIO_STREAMS = {1: [1, 2, 3], 2: [4, 5, 6], 3: [5, 7, 8]}      # NN inputs: molN, molW of each stream (stream 5 is shared by scenarios 2 and 3)
+SCENARIO_OUTLETS = {1: [2, 3], 2: [5, 6], 3: [7, 8]}               # NN inputs: molN, molW of the dilute and concentrate outlet stream of each unit (disjoint between scenarios)
+ADD_UNIT_BALANCES = False           # True: also add inlet = dilute outlet + concentrate outlet (N and W) for units 1,2,3 (inlet streams 1,4,5); implied by the unit models, so valid, but not in the stage-1 constraints
+UNIT_INLET = {1: (2, 3), 4: (5, 6), 5: (7, 8)}
 # ====================================================================================
 
 # OMLT propagates pre-activation bounds numerically with exp(); the wide original bounds times large weights overflow it (math range error).
@@ -66,7 +68,7 @@ for s in SCENARIOS:
     if dt != {onnx.TensorProto.DOUBLE}: sys.exit(f"{mp}: weights are ONNX type(s) {sorted(dt)}, expected float64 (11)")
     c = json.load(open(cp))
     if not np.isfinite(c["delta"]): sys.exit(f"scenario {s}: certification has no finite delta (termination {c['termination']})")
-    exp = [f"mol{x}Stream{k}" for k in SCENARIO_STREAMS[s] for x in "NW"]
+    exp = [f"mol{x}Stream{k}" for k in SCENARIO_OUTLETS[s] for x in "NW"]
     if c["input_names"] != exp: sys.exit(f"scenario {s}: input names in {cp} differ from the expected {exp}")
     S[s] = dict(model=mp, delta=float(c["delta"]), lo=np.array(c["box_lo"]), hi=np.array(c["box_hi"]), cert=c, names=exp)
     print(f"scenario {s}: delta = {S[s]['delta']:.6g}  (certified gap {100 * c['rel_gap']:.3g}%, {c['termination']}), box " +
@@ -90,14 +92,17 @@ print(f"stage-1 constraints kept: {len(SC1)}", flush=True)
 m.link = pyo.ConstraintList(); outs = []
 for s in SCENARIOS:
     if INPUT_BOX == "original": bnd = {i: tuple(float(v) for v in m.y[n].bounds) for i, n in enumerate(S[s]["names"])}
-    else: bnd = {i: (float(S[s]["lo"][i]), float(S[s]["hi"][i])) for i in range(6)}
-    S[s]["used_lo"], S[s]["used_hi"] = [bnd[i][0] for i in range(6)], [bnd[i][1] for i in range(6)]
-    assert all(np.isfinite(v) for i in range(6) for v in bnd[i]), "network inputs need finite bounds"
+    else: bnd = {i: (float(S[s]["lo"][i]), float(S[s]["hi"][i])) for i in range(len(S[s]["names"]))}
+    S[s]["used_lo"], S[s]["used_hi"] = [bnd[i][0] for i in range(len(S[s]["names"]))], [bnd[i][1] for i in range(len(S[s]["names"]))]
+    assert all(np.isfinite(v) for i in range(len(S[s]["names"])) for v in bnd[i]), "network inputs need finite bounds"
     net = load_onnx_neural_network(onnx.load(S[s]["model"]), input_bounds=bnd)
     blk = OmltBlock(); setattr(m, f"nn{s}", blk)
     blk.build_formulation(ReluBigMFormulation(net) if ACTIVATION == "relu" else FullSpaceSmoothNNFormulation(net))
-    for i, n in enumerate(S[s]["names"]): m.link.add(blk.inputs[i] == m.y[n])           # shared stream 5 is linked to both networks
+    for i, n in enumerate(S[s]["names"]): m.link.add(blk.inputs[i] == m.y[n])           
     outs.append(blk.outputs[0])
+if ADD_UNIT_BALANCES:
+    for k, (a, b) in UNIT_INLET.items():
+        for x in "NW": m.link.add(m.y[f"mol{x}Stream{k}"] == m.y[f"mol{x}Stream{a}"] + m.y[f"mol{x}Stream{b}"])
 DELTA_SUM = sum(S[s]["delta"] for s in SCENARIOS)
 m.bound_obj = pyo.Objective(expr=sum(outs), sense=pyo.minimize)       # sum_s NN_s(y); the constant sum_s delta_s is added after the solve
 

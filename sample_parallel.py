@@ -2,8 +2,9 @@
 Parallel stage-1 sampling for ONE scenario (many CPUs, IPOPT).  Same data format as pipeline.py stage 1, so pipeline.py (RUN_SAMPLE=False)
 can train / certify from the file written here.
 
-For every box of a BOXES_PER_DIM^6 grid over the scenario's 6 first-stage variables (molN, molW of its 3 streams, original bounds):
-    min f_s(y, x_s)  s.t.  stage-1 constraints, scenario-s constraints, the 6 variables inside the box
+For every box of a BOXES_PER_DIM^4 grid over the 4 free first-stage variables of the scenario's ED unit (molN, molW of its dilute and concentrate OUTLET streams, original bounds;
+the inlet stream = sum of the outlets follows from the unit balances and is determined by the solver):
+    min f_s(y, x_s)  s.t.  stage-1 constraints, scenario-s constraints, the 4 outlet variables inside the box
 and one JSON line per box is appended to <OUT_DIR>/<INSTANCE>_<s>.jsonl   (status optimal / infeasible / timeout_nolb / error:*).
 
 Parallelism: the model is built once, then N_PROC worker processes are forked (each has its own copy); the main process is the only
@@ -26,7 +27,7 @@ PROBLEM_MODULE = "NSPLIB.src.instances.EDUnits_nocp.EDUnits_nocp"
 OUT_DIR   = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/decomp_srun"      # same folder as pipeline.py -> the file is EDUnits_nocp_<s>.jsonl there
 SCENARIO  = 1                                                                # 1, 2 or 3 (command-line argument overrides)
 N_PROC    = 10                                                               # worker processes (overridden by $SLURM_CPUS_PER_TASK)
-BOXES_PER_DIM = 10                                                           # pieces per boxed dimension: one int, or a dict keyed by variable name (10 -> 10^6 boxes)
+BOXES_PER_DIM = 10                                                           # pieces per boxed dimension: one int, or a dict keyed by variable name (10 -> 10^4 boxes)
 MAX_BOXES = None                                                             # e.g. 200 for a quick test; None = all boxes
 SAVE_X    = False                                                            # True: also store the scenario variables x_s of every solution (file ~20x bigger); training/certification only need y
 SAMPLE_TIME = 60                                                             # IPOPT cpu-time limit (s) per box
@@ -34,12 +35,12 @@ IPOPT_OPTIONS = {"tol": 1e-6, "constr_viol_tol": 1e-2, "acceptable_tol": 1e-4, "
 CHUNK       = 20                      # boxes handed to a worker at a time
 FLUSH_EVERY = 500                     # fsync the output file every this many finished boxes
 LOG_EVERY   = 60                      # progress line every this many seconds
-SCENARIO_STREAMS = {1: [1, 2, 3], 2: [4, 5, 6], 3: [5, 7, 8]}               # boxed variables: molN, molW of each stream (stream 5 is shared)
+SCENARIO_OUTLETS = {1: [2, 3], 2: [5, 6], 3: [7, 8]}                      # boxed variables: molN, molW of the dilute and concentrate outlet stream of the unit
 RANGES = {f"mol{x}Stream{k}": ((1e-5, 10.0) if x == "N" else (1e-5, 500.0)) for k in range(1, 9) for x in "NW"}    # original variable bounds
 # ====================================================================================
 
 SS = int(sys.argv[1]) if len(sys.argv) > 1 else SCENARIO
-assert SS in SCENARIO_STREAMS, f"scenario must be one of {sorted(SCENARIO_STREAMS)}"
+assert SS in SCENARIO_OUTLETS, f"scenario must be one of {sorted(SCENARIO_OUTLETS)}"
 N_PROC = int(os.environ.get("SLURM_CPUS_PER_TASK", N_PROC))
 REPO = os.path.dirname(os.path.abspath(__file__))
 os.chdir(REPO); sys.path.insert(0, REPO)                                      # NSPLIB writes log files relative to the repo root
@@ -47,7 +48,7 @@ OUT_DIR = OUT_DIR if os.path.isabs(OUT_DIR) else os.path.join(REPO, OUT_DIR)
 os.makedirs(OUT_DIR, exist_ok=True)
 INSTANCE  = PROBLEM_MODULE.split(".")[-1]
 DATA_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}.jsonl")
-names = [f"mol{x}Stream{k}" for k in SCENARIO_STREAMS[SS] for x in "NW"]       # the 6 boxed variables (same order as in_names of pipeline.py)
+names = [f"mol{x}Stream{k}" for k in SCENARIO_OUTLETS[SS] for x in "NW"]       # the 4 boxed variables (same order as in_names of pipeline.py)
 nb = [int(BOXES_PER_DIM[n]) if isinstance(BOXES_PER_DIM, dict) else int(BOXES_PER_DIM) for n in names]; assert all(k >= 1 for k in nb)
 edges = [np.linspace(RANGES[n][0], RANGES[n][1], k + 1) for n, k in zip(names, nb)]
 N_BOXES = int(np.prod(nb)); N_TOTAL = min(N_BOXES, MAX_BOXES) if MAX_BOXES else N_BOXES
@@ -81,7 +82,7 @@ if not SOLVER.available(exception_flag=False): sys.exit("Pyomo cannot find the i
 
 def solve_box(idx):
     """Solve one box in a worker process; returns (status, JSON line of the record)."""
-    L = [edges[d][idx[d]] for d in range(6)]; U = [edges[d][idx[d] + 1] for d in range(6)]
+    L = [edges[d][idx[d]] for d in range(len(names))]; U = [edges[d][idx[d] + 1] for d in range(len(names))]
     for d, n in enumerate(names):
         v = M.y[n]; v.setlb(L[d]); v.setub(U[d]); v.set_value(0.5 * (L[d] + U[d]))
     status, label, ltype, ub, yv, xv = "error", None, None, None, None, None
@@ -112,9 +113,9 @@ def read_done():
         try: rec = json.loads(line)
         except Exception: continue                                    # partially written last line
         ix = tuple(rec["box"])
-        ok = rec.get("vars", names) == names and len(ix) == 6 and all(
+        ok = rec.get("vars", names) == names and len(ix) == len(names) and all(
             0 <= ix[d] < nb[d] and math.isclose(rec["lo"][d], edges[d][ix[d]], rel_tol=1e-9, abs_tol=1e-12)
-            and math.isclose(rec["hi"][d], edges[d][ix[d] + 1], rel_tol=1e-9, abs_tol=1e-12) for d in range(6))
+            and math.isclose(rec["hi"][d], edges[d][ix[d] + 1], rel_tol=1e-9, abs_tol=1e-12) for d in range(len(names)))
         if not ok: sys.exit(f"{DATA_FILE} was written with a different box grid / variable set than BOXES_PER_DIM={BOXES_PER_DIM}; move or delete it and run again")
         if not str(rec.get("status", "")).startswith("error"): done.add(ix)
     return done
