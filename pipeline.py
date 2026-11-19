@@ -67,9 +67,9 @@ BOXES_PER_DIM = 10                  # number of equal pieces per boxed dimension
 MAX_BOXES = None                                                  # e.g. 4 for a quick test; None = all boxes
 
 # --- stage 2: training ---
-HIDDEN     = [8, 8]
-ACTIVATION = "sigmoid"              # "sigmoid" (OMLT full-space NLP) or "relu" (OMLT big-M MILP)
-TAG        = "b64h4sig"
+HIDDEN     = [4, 4]
+ACTIVATION = "relu"                 # "sigmoid" (OMLT full-space NLP) or "relu" (OMLT big-M MILP)
+TAG        = "h44relu"
 LR, BATCH_SIZE, EPOCHS, PATIENCE, VAL_FRAC, SEED = 1e-3, 16, 2000, 200, 0.2, 0
 MIN_ROWS   = 10                     # stop if a scenario has fewer usable rows than this
 
