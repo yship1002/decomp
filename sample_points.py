@@ -1,19 +1,18 @@
 """
-Parallel FIXED-POINT sampling for ONE scenario (many CPUs, IPOPT).
+Parallel point sampling for ONE scenario (many CPUs, IPOPT).  Two modes (MODE below, default "fixed"):
+  "fixed"   : fix the 4 outlet variables at each grid point, solve min f_s.  EVERY point is written: optimal -> label = cost, infeasible -> label = inf.
+  "penalty" : smooth extension into the infeasible region (4 variables free, min f_s + PEN_RHO*(scaled distance to the grid point)); every point gets a finite label.
 
-For every point of an N_PTS^4 grid over the scenario's 4 free first-stage variables (molN, molW of its dilute and concentrate OUTLET streams,
-N_PTS values spread uniformly over the ORIGINAL bounds, both end points included) the 4 variables are FIXED to the grid point and
+SAMPLING SPACE (SPACE = "fcr", default): an N_PTS^4 grid over (flow, conc, cf, rec) of the unit INLET (bounds QBOUNDS, log/linear spacing QSPACING, end points included).
+Each grid point is converted by to_outlets() into the 4 first-stage variables of the scenario (molN, molW of its dilute and concentrate OUTLET streams), which are FIXED, and
     min f_s(y, x_s)  s.t.  stage-1 constraints, scenario-s constraints
-is solved with IPOPT (the remaining first-stage variables, i.e. the inlet stream etc., and x_s are free).  Only FEASIBLE points are written
-(label = local optimum of f_s at that fixed point); infeasible / failed points are only counted.
+is solved with IPOPT (the remaining first-stage variables, i.e. the inlet stream etc., and x_s are free).  There is NO pre-screen: every point goes to the solver
+(only an outlet outside its original variable bounds is labelled infeasible directly, because a fixed variable is not bounds-checked).
 
-Cheap pre-screen (no solver call): a point is skipped when it violates a constraint of the model that involves ONLY the 4 fixed variables and
-the inlet stream they determine (inlet = dilute + concentrate outlet): inlet bounds, concentration bound of the 3 streams, purity constraint,
-and for scenario 1 the feed lower bound of mixer 1 (N1 >= Nfeed + lb(N6), W1 >= Wfeed + lb(W6)).  Skipped points are counted as "screened".
-
-Output (OUT_DIR):  EDUnits_nocp_<s>_pts.jsonl   one line per feasible point, same fields pipeline.py reads (status, label, y of the 4 inputs, box = grid index)
-                   EDUnits_nocp_<s>_pts.progress   one line per finished chunk (resume: finished chunks are skipped; delete both files to start over)
-Train / certify from it with pipeline.py: set DATA_FILE accordingly (see pipeline.py DATA_SUFFIX) and RUN_SAMPLE=False.
+Output (OUT_DIR):  EDUnits_nocp_<s>_pts_q.jsonl   one line per grid point: status (optimal / infeasible / timeout_nolb / error:*), label (cost | inf | null), y = 4 outlet mol flows,
+                                                  q = (flow, conc, cf, rec), box = grid index.   (_pen_q.jsonl in penalty mode; no _q suffix with SPACE="outlet")
+                   EDUnits_nocp_<s>_pts_q.progress   one line per finished chunk (resume: finished chunks are skipped; delete both files to start over)
+Train / certify from it with pipeline.py: set DATA_FILE accordingly (see pipeline.py DATA_SUFFIX) and RUN_SAMPLE=False (pipeline.py only reads optimal / timeout_lb rows).
 
 Usage:   python sample_points.py [scenario] [n_pts]       (defaults SCENARIO / N_PTS below).  N_PROC from $SLURM_CPUS_PER_TASK if set.
 """
@@ -29,19 +28,33 @@ from pyomo.opt import TerminationCondition as TC
 PROBLEM_MODULE = "NSPLIB.src.instances.EDUnits_nocp.EDUnits_nocp"
 OUT_DIR   = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/decomp_srun"
 SCENARIO  = 1                      # 1, 2 or 3 (first command-line argument overrides)
-N_PTS     = 100                    # grid points per free dimension: one int or a dict keyed by variable name (second command-line argument overrides the int)
+MODE      = "fixed"                # "fixed": fix the 4 variables at the grid point (every point is recorded)  |  "penalty": smooth extension, see below (env SAMPLE_MODE overrides)
+PEN_RHO   = 1e7                    # penalty mode: weight of the scaled distance (y - grid point)/range; larger = closer to the true cost on the feasible set, steeper outside it
+PEN_EPS   = 1e-3                   # penalty mode: smoothing of the distance norm (scaled units), keeps the objective differentiable at distance 0
+N_PTS     = 20                     # grid points per free dimension: one int or a dict keyed by variable name (second command-line argument overrides the int)
 N_PROC    = 10                     # worker processes (overridden by $SLURM_CPUS_PER_TASK)
-SCREEN    = True                   # skip points that violate a constraint on the fixed variables / inlet before calling the solver
 MAX_POINTS = None                  # e.g. 2000 for a timing test (first MAX_POINTS grid points only); None = whole grid
-SAMPLE_TIME = 60
+SOLVER_NAME = "baron"              # "baron" (global solve: infeasible = proven, label = global optimum / lower bound)  |  "ipopt" (local, fast; env SAMPLE_SOLVER overrides)
+BARON_EXE = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baron"            # None -> found on PATH   (same as pipeline.py)
+BARON_LIC = "/storage/home/hcoda1/3/jyang872/r-jscott319-0/privatemodule/baron/baronlice.txt"    # None -> default
+SAMPLE_TIME = 60                   # time limit (s) per point solve, BARON or IPOPT
+BARON_OPTIONS = {"MaxTime": SAMPLE_TIME, "EpsR": 1e-2, "EpsA": 1e-6, "TDo": 0, "AbsConFeasTol": 1e-2}     # same as pipeline.py SAMPLE_OPTIONS: time limit (s) and gap per point
 IPOPT_OPTIONS = {"tol": 1e-6, "constr_viol_tol": 1e-2, "acceptable_tol": 1e-4, "max_iter": 3000, "max_cpu_time": SAMPLE_TIME, "print_level": 0}
 CHUNK     = 2000                   # grid points per task (a chunk is the unit of resume)
 LOG_EVERY = 60
 SCENARIO_OUTLETS = {1: [2, 3], 2: [5, 6], 3: [7, 8]}
 UNIT_INLET = {1: 1, 2: 4, 3: 5}                                              # scenario -> inlet stream (= dilute + concentrate outlet)
+SPACE     = "fcr"                  # sampling space: "fcr" = grid over (flow, conc, cf, rec) of the unit inlet, outlets back-calculated  |  "outlet" = old grid over the 4 outlet mol flows (env SAMPLE_SPACE overrides)
+# bounds of the 4 sampling quantities = the bounds of samplingED.py (flowIn / concIn lines 131-132, CF / REC lines 149-150).  flow: inlet volumetric flow [L/d], conc: inlet N concentration [mg/L],
+# cf = conc(concentrate)/conc(inlet) (mass-concentration basis, as in the model), rec = N(concentrate)/N(inlet).   Grid spacing per dimension: "log" or "lin".
+QBOUNDS = {"flow": (15000.0, 250000.0), "conc": (1366.0, 15000.0), "cf": (1.05, 30.0), "rec": (0.03, 0.95)}
+QSPACING = {"flow": "log", "conc": "log", "cf": "log", "rec": "lin"}
+CONC_SECOND = {1: True, 2: False, 3: False}                                  # scenario -> is the SECOND outlet (N_b, W_b) the concentrate?  unit1: (2 dil, 3 conc); unit2: (5 conc, 6 dil); unit3: (7 conc, 8 dil)
 RANGES = {f"mol{x}Stream{k}": ((1e-5, 10.0) if x == "N" else (1e-5, 500.0)) for k in range(1, 9) for x in "NW"}
 # ====================================================================================
 
+MODE = os.environ.get("SAMPLE_MODE", MODE); assert MODE in ("fixed", "penalty")
+SPACE = os.environ.get("SAMPLE_SPACE", SPACE); assert SPACE in ("fcr", "outlet")
 SS = int(sys.argv[1]) if len(sys.argv) > 1 else SCENARIO
 if len(sys.argv) > 2: N_PTS = int(sys.argv[2])
 assert SS in SCENARIO_OUTLETS
@@ -53,10 +66,15 @@ OUT_DIR = os.environ.get("SAMPLE_OUT", OUT_DIR)                       # env over
 OUT_DIR = OUT_DIR if os.path.isabs(OUT_DIR) else os.path.join(REPO, OUT_DIR)
 os.makedirs(OUT_DIR, exist_ok=True)
 INSTANCE = PROBLEM_MODULE.split(".")[-1]
-DATA_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}_pts.jsonl"); PROG_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}_pts.progress")
+TAGF = ("pts" if MODE == "fixed" else "pen") + ("_q" if SPACE == "fcr" else "")
+DATA_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}_{TAGF}.jsonl"); PROG_FILE = os.path.join(OUT_DIR, f"{INSTANCE}_{SS}_{TAGF}.progress")
 names = [f"mol{x}Stream{k}" for k in SCENARIO_OUTLETS[SS] for x in "NW"]
-npd = [int(N_PTS[n]) if isinstance(N_PTS, dict) else int(N_PTS) for n in names]; assert all(k >= 2 for k in npd)
-grids = [np.linspace(RANGES[n][0], RANGES[n][1], k) for n, k in zip(names, npd)]
+gnames = names if SPACE == "outlet" else list(QBOUNDS)                          # the 4 GRID dimensions (outlet mol flows, or flow/conc/cf/rec)
+npd = [int(N_PTS[n]) if isinstance(N_PTS, dict) else int(N_PTS) for n in gnames]; assert all(k >= 2 for k in npd)
+def _axis(n, k):
+    if SPACE == "outlet": return np.linspace(RANGES[n][0], RANGES[n][1], k)
+    lo, hi = QBOUNDS[n]; return np.geomspace(lo, hi, k) if QSPACING[n] == "log" else np.linspace(lo, hi, k)
+grids = [_axis(n, k) for n, k in zip(gnames, npd)]
 N_ALL = int(np.prod(npd)); N_TOTAL = min(N_ALL, MAX_POINTS) if MAX_POINTS else N_ALL
 N_CHUNKS = (N_TOTAL + CHUNK - 1) // CHUNK
 INLET = UNIT_INLET[SS]
@@ -78,51 +96,93 @@ def build_model():
 
 SM, M = build_model()
 M.f_obj = pyo.Objective(expr=SM.obj_expr[SS], sense=pyo.minimize)
-SOLVER = pyo.SolverFactory("ipopt")
-if not SOLVER.available(exception_flag=False): sys.exit("Pyomo cannot find the ipopt executable on PATH")
-# constants of the screen (read from the model; same formulas as the stage-1 constraints)
-# constants copied from EDUnits_nocp.py (densityH2OGM3, molweightN, molweightH2OgMol, flowFeed, concFeed)
-RHO, MN, MW = 1000 * 1000, 14.0067, 18.01528
-FLOW_FEED, CONC_FEED = 192555 / (1000 * 24 * 60 * 60), 1366
-KUB = 40000 * MW / (RHO - 40000 * MN)                                   # conConcUBStream*:  molN <= KUB * molW
-KP1, KP3 = 400 * MW / MN / 1e6, 30000 * MW / MN / 1e6                   # conPurityED1: N2 <= KP1 W2 ; conPurityED3: N7 >= KP3 W7
-NFEED, WFEED = FLOW_FEED * CONC_FEED / MN, FLOW_FEED * (RHO - CONC_FEED) / MW          # molNFeed, molWFeed
-NB, WB = RANGES["molNStream1"], RANGES["molWStream1"]
+if MODE == "penalty":
+    # min f_s + PEN_RHO * ( sqrt( sum_i ((y_i - p_i)/range_i)^2 + EPS^2 ) - EPS )   with the 4 variables FREE inside their original bounds;
+    # the penalty is >= 0 and exactly 0 at y = p, so for a feasible p the optimum is <= f_s*(p) (global solve), and the optimum is Lipschitz in p with constant ~PEN_RHO/range
+    M.p = pyo.Param(range(4), mutable=True, initialize=1.0)
+    _rng = [RANGES[n][1] - RANGES[n][0] for n in names]
+    M.f_obj.deactivate()
+    M.f_pen = pyo.Objective(expr=SM.obj_expr[SS] + PEN_RHO * (pyo.sqrt(sum(((M.y[n] - M.p[d]) / _rng[d]) ** 2 for d, n in enumerate(names)) + PEN_EPS ** 2) - PEN_EPS), sense=pyo.minimize)
+SOLVER_NAME = os.environ.get("SAMPLE_SOLVER", SOLVER_NAME); assert SOLVER_NAME in ("baron", "ipopt")
+if SOLVER_NAME == "baron":
+    SOLVER = pyo.SolverFactory("baron", executable=BARON_EXE) if BARON_EXE and os.path.exists(BARON_EXE) else pyo.SolverFactory("baron")      # missing path (e.g. local test) -> baron on PATH
+    SOLVE_OPTIONS = dict(BARON_OPTIONS)
+    if BARON_LIC and os.path.exists(BARON_LIC): SOLVE_OPTIONS["LicName"] = BARON_LIC
+else:
+    SOLVER = pyo.SolverFactory("ipopt"); SOLVE_OPTIONS = dict(IPOPT_OPTIONS)
+if not SOLVER.available(exception_flag=False): sys.exit(f"Pyomo cannot find the {SOLVER_NAME} executable (BARON_EXE / PATH)")
+# constants copied from EDUnits_nocp.py (densityH2OGM3 [g/m3], molweightN, molweightH2OgMol [g/mol])
+DENS, MN, MW = 1000 * 1000, 14.0067, 18.01528
 
 
-def screen(P):
-    """P: (n,4) points (N_a, W_a, N_b, W_b).  Boolean mask of points that pass the necessary conditions."""
-    Na, Wa, Nb, Wb = P.T; Ni, Wi = Na + Nb, Wa + Wb
-    ok = (Ni <= NB[1]) & (Wi <= WB[1]) & (Na <= KUB * Wa) & (Nb <= KUB * Wb) & (Ni <= KUB * Wi)
-    if SS == 1: ok &= (Na <= KP1 * Wa) & (Ni >= NFEED + NB[0]) & (Wi >= WFEED + WB[0])      # mixer 1: N1 = Nfeed + N6, N6 >= 1e-5
-    if SS == 3: ok &= (Na >= KP3 * Wa)                                                      # stream 7 = first outlet of scenario 3
-    return ok
+def to_outlets(Q):
+    """Q: (n,4) = (flow [L/d], conc [mg/L], cf, rec) of the unit inlet -> (n,4) outlet mol flows (N_a, W_a, N_b, W_b) in the order of SCENARIO_OUTLETS[SS].
+    Same stream convention as the model:  V [m3/s], c [g/m3]:  molN = V c / MN,  molW = V (DENS - c) / MW   (stream volume = mass / DENS, so volumes balance too).
+      inlet:       N_in = V c / MN,  W_in = V (DENS - c) / MW
+      concentrate: N_c = rec N_in,  c_c = cf c,  V_c = N_c MN / c_c,  W_c = V_c (DENS - c_c) / MW
+      dilute:      N_d = N_in - N_c, W_d = W_in - W_c"""
+    flow, c, cf, rec = Q.T
+    V = flow / (1000 * 86400); Nin = V * c / MN; Win = V * (DENS - c) / MW
+    Nc = rec * Nin; cc = cf * c; Vc = Nc * MN / cc; Wc = Vc * (DENS - cc) / MW
+    Nd, Wd = Nin - Nc, Win - Wc
+    return np.stack([Nd, Wd, Nc, Wc] if CONC_SECOND[SS] else [Nc, Wc, Nd, Wd], axis=1)
+
+
+def _bnd(v):
+    return float(v) if v is not None and np.isfinite(v) and abs(v) < 1e20 else None
 
 
 def solve_point(p):
-    for n, v in zip(names, p): M.y[n].fix(float(v))
+    """Solve one point.  Returns a dict: status ('optimal' | 'infeasible' | 'timeout' | 'error:*'), label, f_value, distance, y_repaired, lower_bound, upper_bound.
+    fixed mode: label = f_s at the fixed point.  penalty mode: label = optimal penalised objective.  timeout: label = last lower bound (None if there is none)."""
+    if MODE == "fixed":
+        for n, v in zip(names, p): M.y[n].fix(float(v))
+    else:
+        for d, n in enumerate(names): M.p[d] = float(p[d]); M.y[n].set_value(float(p[d]))
     M.y[f"molNStream{INLET}"].set_value(float(p[0] + p[2])); M.y[f"molWStream{INLET}"].set_value(float(p[1] + p[3]))      # start the inlet at the balance value
-    status, label = "error", None
+    out = dict(status="error", label=None, f_value=None, distance=None, y_repaired=None, lower_bound=None, upper_bound=None)
     try:
-        r = SOLVER.solve(M, tee=False, load_solutions=False, options=dict(IPOPT_OPTIONS)); tc = r.solver.termination_condition
-        if tc in (TC.optimal, TC.globallyOptimal, TC.locallyOptimal): M.solutions.load_from(r); status, label = "optimal", float(pyo.value(M.f_obj))
-        elif tc in (TC.infeasible, TC.invalidProblem): status = "infeasible"
-        else: status = "timeout_nolb"
-    except Exception as e: status = "error:" + type(e).__name__
-    return status, label
+        r = SOLVER.solve(M, tee=False, load_solutions=False, options=dict(SOLVE_OPTIONS)); tc = r.solver.termination_condition
+        try: out["lower_bound"], out["upper_bound"] = _bnd(r.problem.lower_bound), _bnd(r.problem.upper_bound)
+        except Exception: pass
+        if tc in (TC.optimal, TC.globallyOptimal, TC.locallyOptimal):
+            M.solutions.load_from(r); out["status"] = "optimal"; out["f_value"] = float(pyo.value(M.f_obj.expr))
+            ys = [float(M.y[n].value) for n in names]; out["y_repaired"] = ys
+            out["distance"] = float(np.sqrt(sum(((ys[d] - p[d]) / (RANGES[n][1] - RANGES[n][0])) ** 2 for d, n in enumerate(names))))
+            out["label"] = out["f_value"] if MODE == "fixed" else float(pyo.value(M.f_pen))
+        elif tc in (TC.infeasible, TC.invalidProblem): out["status"] = "infeasible"
+        else: out["status"] = "timeout"; out["label"] = out["lower_bound"]
+    except Exception as e: out["status"] = "error:" + type(e).__name__
+    return out
 
 
 def do_chunk(c):
-    """Grid points c*CHUNK .. (c+1)*CHUNK-1: returns (chunk, counts, JSON lines of the feasible points)."""
+    """Grid points c*CHUNK .. (c+1)*CHUNK-1: returns (chunk, counts, JSON lines of ALL points)."""
     a, b = c * CHUNK, min((c + 1) * CHUNK, N_TOTAL)
     ix = np.array(np.unravel_index(np.arange(a, b), npd)).T                       # (n,4) grid indices
-    P = np.stack([grids[d][ix[:, d]] for d in range(4)], axis=1)
-    keep = screen(P) if SCREEN else np.ones(len(P), bool)
-    counts = {"screened": int((~keep).sum())}; lines = []
-    for k in np.nonzero(keep)[0]:
-        t0 = time.time(); st, lab = solve_point(P[k]); counts[st] = counts.get(st, 0) + 1
-        if st == "optimal": lines.append(json.dumps(dict(scenario=SS, vars=names, box=ix[k].tolist(), status="optimal", label=lab, label_type="ipopt_fixed_point",
-                                                          y={n: float(v) for n, v in zip(names, P[k])}, seconds=round(time.time() - t0, 3))))
+    Q = np.stack([grids[d][ix[:, d]] for d in range(4)], axis=1)                  # grid point in the sampling space
+    P = Q if SPACE == "outlet" else to_outlets(Q)                                 # (N_a, W_a, N_b, W_b) outlet mol flows handed to the solver
+    counts = {}; lines = []
+    for k in range(len(P)):
+        t0 = time.time()
+        oob = [n for d, n in enumerate(names) if not (RANGES[n][0] <= P[k, d] <= RANGES[n][1])]
+        if oob:      # a fixed variable is NOT bounds-checked by the solver, so an outlet outside its original bounds is labelled here without a solve
+            out = dict(status="out_of_bound", label=None, f_value=None, distance=None, y_repaired=None, lower_bound=None, upper_bound=None)
+            print(f"[points] OUT OF BOUND scenario {SS} box {ix[k].tolist()}: {oob} = {[float(P[k, names.index(n)]) for n in oob]}  -> labelled infeasible (label inf), not solved", flush=True)
+        else: out = solve_point(P[k])
+        st = out["status"]; counts[st] = counts.get(st, 0) + 1
+        # EVERY point is written.  feasible (classifier label): optimal / timeout -> True, infeasible / out_of_bound -> False, error -> None.
+        # label (regression target): optimal -> cost, timeout -> last lower bound (None if none), infeasible / out_of_bound -> inf, error -> None.
+        feas = True if st in ("optimal", "timeout") else False if st in ("infeasible", "out_of_bound") else None
+        rec = dict(scenario=SS, vars=names, box=ix[k].tolist(), status=st, feasible=feas,
+                   label=(float("inf") if feas is False else out["label"]), y={n: float(v) for n, v in zip(names, P[k])}, seconds=round(time.time() - t0, 3))
+        if SPACE == "fcr": rec["q"] = {n: float(v) for n, v in zip(gnames, Q[k])}      # the sampled (flow, conc, cf, rec); y = back-calculated outlet mol flows
+        if oob: rec["out_of_bound_vars"] = oob
+        if st == "optimal": rec["label_type"] = ("baron_global" if SOLVER_NAME == "baron" else "ipopt_fixed_point") if MODE == "fixed" else "penalty"
+        if st == "timeout": rec.update(label_type="lower_bound", lower_bound=out["lower_bound"], upper_bound=out["upper_bound"], has_incumbent=out["upper_bound"] is not None)
+        if st == "optimal" and MODE == "penalty":   # y = the GRID point (NN input); f_value / distance / y_repaired describe the repaired point; distance ~ 0 means the grid point itself is feasible
+            rec.update(f_value=out["f_value"], distance=out["distance"], y_repaired={n: v for n, v in zip(names, out["y_repaired"])})
+        lines.append(json.dumps(rec))
     return c, counts, lines
 
 
@@ -132,7 +192,7 @@ def read_done():
         for line in open(PROG_FILE):
             try: r = json.loads(line)
             except Exception: continue
-            if r.get("n_pts") != npd or r.get("chunk_size") != CHUNK: sys.exit(f"{PROG_FILE} was written with a different grid / chunk size; move or delete it and {DATA_FILE}")
+            if r.get("n_pts") != npd or r.get("chunk_size") != CHUNK or r.get("mode", "fixed") != MODE or r.get("solver", "ipopt") != SOLVER_NAME or r.get("space", "outlet") != SPACE or (SPACE == "fcr" and r.get("qb") != [list(QBOUNDS[n]) + [QSPACING[n]] for n in gnames]) or (MODE == "penalty" and r.get("rho") != [PEN_RHO, PEN_EPS]): sys.exit(f"{PROG_FILE} was written with a different grid / chunk size / mode / penalty; move or delete it and {DATA_FILE}")
             done[r["chunk"]] = r["counts"]
     return done
 
@@ -142,7 +202,7 @@ def main():
     tot = {}
     for cnt in done.values():
         for k, v in cnt.items(): tot[k] = tot.get(k, 0) + v
-    print(f"[points] scenario {SS}: grid {'x'.join(map(str, npd))} = {N_ALL} points ({N_TOTAL} used), {N_CHUNKS} chunks of {CHUNK}, {len(done)} already done, {N_PROC} processes", flush=True)
+    print(f"[points] scenario {SS} solver {SOLVER_NAME} mode {MODE} space {SPACE}" + (f" (rho {PEN_RHO:g}, eps {PEN_EPS:g})" if MODE == "penalty" else "") + f": grid {'x'.join(map(str, npd))} = {N_ALL} points ({N_TOTAL} used), {N_CHUNKS} chunks of {CHUNK}, {len(done)} already done, {N_PROC} processes", flush=True)
     t_all = t_log = time.time(); k = 0
     fd, fp = open(DATA_FILE, "a"), open(PROG_FILE, "a")
     with mp.get_context("fork").Pool(N_PROC) as pool:
@@ -152,7 +212,7 @@ def main():
             for c, counts, lines in pool.imap_unordered(do_chunk, todo):
                 for ln in lines: fd.write(ln + "\n")
                 fd.flush(); os.fsync(fd.fileno())
-                fp.write(json.dumps(dict(chunk=c, n_pts=npd, chunk_size=CHUNK, counts=counts)) + "\n"); fp.flush(); os.fsync(fp.fileno())
+                fp.write(json.dumps(dict(chunk=c, n_pts=npd, chunk_size=CHUNK, mode=MODE, solver=SOLVER_NAME, space=SPACE, qb=[list(QBOUNDS[n]) + [QSPACING[n]] for n in gnames] if SPACE == "fcr" else None, rho=[PEN_RHO, PEN_EPS], counts=counts)) + "\n"); fp.flush(); os.fsync(fp.fileno())
                 k += 1
                 for kk, v in counts.items(): tot[kk] = tot.get(kk, 0) + v
                 if time.time() - t_log > LOG_EVERY:
